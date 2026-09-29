@@ -15,6 +15,7 @@ function createHarness() {
   let localAlerts = 0;
   let questionTitle = '';
   let nativeLocationCalls = 0;
+  const menuLabels = [];
   const elements = new Map();
   const geolocation = {
     getCurrentPosition(success) {
@@ -67,7 +68,7 @@ function createHarness() {
     GM_deleteValue: (key) => values.delete(key),
     GM_getValue: (key, fallback) => values.has(key) ? values.get(key) : fallback,
     GM_notification: () => { localAlerts += 1; },
-    GM_registerMenuCommand: () => {},
+    GM_registerMenuCommand: (label) => { menuLabels.push(label); },
     GM_setValue: (key, value) => values.set(key, value),
     GM_xmlhttpRequest: (options) => {
       telegramMessages += 1;
@@ -128,6 +129,7 @@ function createHarness() {
       geolocation.getCurrentPosition(callback);
     },
     nativeLocationCalls: () => nativeLocationCalls,
+    menuLabels: () => [...menuLabels],
   };
 }
 
@@ -180,4 +182,12 @@ test('location mocking returns configured coordinates when enabled', () => {
   assert.equal(received.coords.longitude, -117.84);
   assert.equal(received.coords.accuracy, 7);
   assert.equal(harness.nativeLocationCalls(), 0);
+});
+
+test('menu uses one settings panel instead of separate toggle commands', () => {
+  const labels = createHarness().menuLabels();
+
+  assert.equal(labels.some((label) => label.includes('打开 Watcher 设置')), true);
+  assert.equal(labels.some((label) => label.includes('开启/关闭定位')), false);
+  assert.equal(labels.some((label) => label.includes('设置模拟坐标')), false);
 });

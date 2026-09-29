@@ -2,7 +2,7 @@
 // @name         PollEv Watcher
 // @author       KKazuhaK
 // @namespace    https://github.com/pollev-watcher
-// @version      0.4.0
+// @version      0.4.1
 // @description  Notify Telegram when a Poll Everywhere activity becomes active.
 // @license      MIT
 // @homepageURL  https://github.com/KKazuhaK/pollev-watcher
@@ -520,13 +520,6 @@
     }
   }
 
-  function toggleWatcher() {
-    const enabled = !GM_getValue(STORAGE_KEYS.enabled, true);
-    GM_setValue(STORAGE_KEYS.enabled, enabled);
-    window.alert(`PollEv Watcher 已${enabled ? '开启' : '暂停'}。`);
-    evaluateState();
-  }
-
   function updateLocationBadge() {
     const existing = document.getElementById('pollev-location-mock-status');
     if (!isLocationMockEnabled()) {
@@ -557,56 +550,6 @@
     if (!existing) document.documentElement.appendChild(badge);
   }
 
-  function toggleLocationMock() {
-    const enabled = !isLocationMockEnabled();
-    GM_setValue(STORAGE_KEYS.locationEnabled, enabled);
-    updateLocationBadge();
-    window.alert(`PollEv 定位模拟已${enabled ? '开启' : '关闭'}。${enabled ? '请刷新页面后再触发定位检查。' : ''}`);
-  }
-
-  function configureLocationMock() {
-    const latitude = window.prompt('Latitude（-90 到 90）', String(locationSetting('latitude')));
-    if (latitude === null) return;
-    const longitude = window.prompt('Longitude（-180 到 180）', String(locationSetting('longitude')));
-    if (longitude === null) return;
-    const accuracy = window.prompt('Accuracy（米，必须大于 0）', String(locationSetting('accuracy')));
-    if (accuracy === null) return;
-
-    const values = {
-      latitude: Number(latitude),
-      longitude: Number(longitude),
-      accuracy: Number(accuracy),
-    };
-    if (!Number.isFinite(values.latitude) || values.latitude < -90 || values.latitude > 90
-      || !Number.isFinite(values.longitude) || values.longitude < -180 || values.longitude > 180
-      || !Number.isFinite(values.accuracy) || values.accuracy <= 0) {
-      window.alert('坐标或精度格式不正确。');
-      return;
-    }
-
-    GM_setValue(STORAGE_KEYS.latitude, values.latitude);
-    GM_setValue(STORAGE_KEYS.longitude, values.longitude);
-    GM_setValue(STORAGE_KEYS.accuracy, values.accuracy);
-    GM_setValue(STORAGE_KEYS.locationErrorCode, 0);
-    updateLocationBadge();
-    window.alert('定位模拟坐标已保存。请刷新页面后再触发定位检查。');
-  }
-
-  function configureLocationError() {
-    const code = window.prompt(
-      '定位结果：0=成功，1=拒绝，2=不可用，3=超时',
-      String(locationSetting('errorCode')),
-    );
-    if (code === null) return;
-    const numericCode = Number(code);
-    if (![0, 1, 2, 3].includes(numericCode)) {
-      window.alert('请输入 0、1、2 或 3。');
-      return;
-    }
-    GM_setValue(STORAGE_KEYS.locationErrorCode, numericCode);
-    updateLocationBadge();
-  }
-
   function testLocationMock() {
     if (!geolocation) {
       window.alert('当前浏览器没有提供 Geolocation API。');
@@ -622,6 +565,142 @@
     );
   }
 
+  function openSettingsPanel() {
+    document.getElementById('pollev-watcher-settings')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'pollev-watcher-settings';
+    overlay.innerHTML = `
+      <style>
+        #pollev-watcher-settings {
+          position: fixed; inset: 0; z-index: 2147483647;
+          display: grid; place-items: center; padding: 20px;
+          background: rgba(15, 23, 42, .58);
+          font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          color: #172033;
+        }
+        #pollev-watcher-settings * { box-sizing: border-box; }
+        #pollev-watcher-settings .pw-card {
+          width: min(460px, 100%); padding: 22px; border-radius: 16px;
+          background: #fff; box-shadow: 0 22px 70px rgba(0, 0, 0, .32);
+        }
+        #pollev-watcher-settings .pw-title {
+          display: flex; align-items: center; justify-content: space-between;
+          margin-bottom: 18px; font-size: 20px; font-weight: 750;
+        }
+        #pollev-watcher-settings .pw-close {
+          border: 0; background: transparent; color: #64748b;
+          font-size: 26px; line-height: 1; cursor: pointer;
+        }
+        #pollev-watcher-settings .pw-row {
+          display: flex; align-items: center; justify-content: space-between;
+          gap: 16px; padding: 13px 0; border-top: 1px solid #e5e7eb;
+        }
+        #pollev-watcher-settings .pw-label { font-weight: 650; }
+        #pollev-watcher-settings .pw-note { color: #64748b; font-size: 12px; }
+        #pollev-watcher-settings .pw-switch { position: relative; width: 48px; height: 28px; flex: 0 0 auto; }
+        #pollev-watcher-settings .pw-switch input { position: absolute; opacity: 0; pointer-events: none; }
+        #pollev-watcher-settings .pw-slider {
+          position: absolute; inset: 0; border-radius: 999px; cursor: pointer;
+          background: #cbd5e1; transition: .18s ease;
+        }
+        #pollev-watcher-settings .pw-slider::after {
+          content: ""; position: absolute; width: 22px; height: 22px;
+          left: 3px; top: 3px; border-radius: 50%; background: #fff;
+          box-shadow: 0 1px 4px rgba(0, 0, 0, .25); transition: .18s ease;
+        }
+        #pollev-watcher-settings input:checked + .pw-slider { background: #16a34a; }
+        #pollev-watcher-settings input:checked + .pw-slider::after { transform: translateX(20px); }
+        #pollev-watcher-settings .pw-grid {
+          display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 12px 0;
+        }
+        #pollev-watcher-settings .pw-field label { display: block; margin-bottom: 4px; color: #475569; font-size: 12px; }
+        #pollev-watcher-settings input[type="number"], #pollev-watcher-settings select {
+          width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff;
+        }
+        #pollev-watcher-settings .pw-actions { display: flex; gap: 9px; margin-top: 14px; }
+        #pollev-watcher-settings .pw-button {
+          padding: 9px 13px; border: 0; border-radius: 9px; cursor: pointer;
+          background: #e2e8f0; color: #172033; font-weight: 650;
+        }
+        #pollev-watcher-settings .pw-primary { background: #2563eb; color: #fff; }
+        #pollev-watcher-settings .pw-status { min-height: 19px; margin-top: 10px; color: #475569; font-size: 12px; }
+      </style>
+      <div class="pw-card" role="dialog" aria-modal="true" aria-labelledby="pw-settings-title">
+        <div class="pw-title"><span id="pw-settings-title">PollEv Watcher 设置</span><button class="pw-close" aria-label="关闭">×</button></div>
+        <div class="pw-row">
+          <div><div class="pw-label">活动开启提醒</div><div class="pw-note">Telegram、桌面通知、声音和标题闪烁</div></div>
+          <label class="pw-switch"><input id="pw-watch-toggle" type="checkbox"><span class="pw-slider"></span></label>
+        </div>
+        <div class="pw-row">
+          <div><div class="pw-label">定位模拟</div><div class="pw-note">仅作用于 Poll Everywhere 页面；更改后建议刷新</div></div>
+          <label class="pw-switch"><input id="pw-location-toggle" type="checkbox"><span class="pw-slider"></span></label>
+        </div>
+        <div class="pw-grid">
+          <div class="pw-field"><label for="pw-latitude">Latitude</label><input id="pw-latitude" type="number" min="-90" max="90" step="any"></div>
+          <div class="pw-field"><label for="pw-longitude">Longitude</label><input id="pw-longitude" type="number" min="-180" max="180" step="any"></div>
+          <div class="pw-field"><label for="pw-accuracy">Accuracy (m)</label><input id="pw-accuracy" type="number" min="0.1" step="any"></div>
+        </div>
+        <div class="pw-field"><label for="pw-error-mode">定位结果</label><select id="pw-error-mode"><option value="0">成功</option><option value="1">权限被拒绝</option><option value="2">位置不可用</option><option value="3">请求超时</option></select></div>
+        <div class="pw-actions"><button class="pw-button pw-primary" id="pw-save-location">保存定位设置</button><button class="pw-button" id="pw-test-location">自检</button></div>
+        <div class="pw-status" id="pw-settings-status"></div>
+      </div>`;
+
+    const watchToggle = overlay.querySelector('#pw-watch-toggle');
+    const locationToggle = overlay.querySelector('#pw-location-toggle');
+    const latitude = overlay.querySelector('#pw-latitude');
+    const longitude = overlay.querySelector('#pw-longitude');
+    const accuracy = overlay.querySelector('#pw-accuracy');
+    const errorMode = overlay.querySelector('#pw-error-mode');
+    const status = overlay.querySelector('#pw-settings-status');
+
+    watchToggle.checked = Boolean(GM_getValue(STORAGE_KEYS.enabled, true));
+    locationToggle.checked = isLocationMockEnabled();
+    latitude.value = String(locationSetting('latitude'));
+    longitude.value = String(locationSetting('longitude'));
+    accuracy.value = String(locationSetting('accuracy'));
+    errorMode.value = String(locationSetting('errorCode'));
+
+    overlay.querySelector('.pw-close').addEventListener('click', () => overlay.remove());
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) overlay.remove();
+    });
+    watchToggle.addEventListener('change', () => {
+      GM_setValue(STORAGE_KEYS.enabled, watchToggle.checked);
+      evaluateState();
+      status.textContent = `活动提醒已${watchToggle.checked ? '开启' : '暂停'}。`;
+    });
+    locationToggle.addEventListener('change', () => {
+      GM_setValue(STORAGE_KEYS.locationEnabled, locationToggle.checked);
+      updateLocationBadge();
+      status.textContent = `定位模拟已${locationToggle.checked ? '开启' : '关闭'}。请刷新页面后重新检查定位。`;
+    });
+    overlay.querySelector('#pw-save-location').addEventListener('click', () => {
+      const values = {
+        latitude: Number(latitude.value),
+        longitude: Number(longitude.value),
+        accuracy: Number(accuracy.value),
+        errorCode: Number(errorMode.value),
+      };
+      if (!Number.isFinite(values.latitude) || values.latitude < -90 || values.latitude > 90
+        || !Number.isFinite(values.longitude) || values.longitude < -180 || values.longitude > 180
+        || !Number.isFinite(values.accuracy) || values.accuracy <= 0
+        || ![0, 1, 2, 3].includes(values.errorCode)) {
+        status.textContent = '坐标、精度或错误模式格式不正确。';
+        return;
+      }
+      GM_setValue(STORAGE_KEYS.latitude, values.latitude);
+      GM_setValue(STORAGE_KEYS.longitude, values.longitude);
+      GM_setValue(STORAGE_KEYS.accuracy, values.accuracy);
+      GM_setValue(STORAGE_KEYS.locationErrorCode, values.errorCode);
+      updateLocationBadge();
+      status.textContent = '定位设置已保存。请刷新页面后重新检查定位。';
+    });
+    overlay.querySelector('#pw-test-location').addEventListener('click', testLocationMock);
+
+    (document.body || document.documentElement).appendChild(overlay);
+  }
+
   function clearTelegramConfig() {
     if (!window.confirm('确定要删除保存在 Tampermonkey 中的 Bot Token 和 Chat ID 吗？')) return;
     GM_deleteValue(STORAGE_KEYS.botToken);
@@ -631,11 +710,7 @@
 
   GM_registerMenuCommand('⚙️ 配置 Telegram', () => void configureTelegram());
   GM_registerMenuCommand('🧪 发送 Telegram 测试通知', () => void testTelegram());
-  GM_registerMenuCommand('⏯️ 开启/暂停监听', toggleWatcher);
-  GM_registerMenuCommand('📍 开启/关闭定位模拟', toggleLocationMock);
-  GM_registerMenuCommand('🧭 配置定位模拟坐标', configureLocationMock);
-  GM_registerMenuCommand('⚠️ 配置定位错误模式', configureLocationError);
-  GM_registerMenuCommand('🧪 测试当前定位结果', testLocationMock);
+  GM_registerMenuCommand('🎛️ 打开 Watcher 设置', openSettingsPanel);
   GM_registerMenuCommand('🗑️ 删除 Telegram 配置', clearTelegramConfig);
 
   function startWatcher() {
