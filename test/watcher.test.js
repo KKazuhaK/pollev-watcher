@@ -36,7 +36,7 @@ function createHarness() {
   };
 
   const values = new Map([
-    ['telegramBotToken', '12345678:test_token_for_harness'],
+    ['telegramBotToken', 'test-token'],
     ['telegramChatId', '12345678'],
   ]);
 

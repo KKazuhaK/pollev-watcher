@@ -1,8 +1,13 @@
 // ==UserScript==
 // @name         PollEv Watcher
 // @namespace    https://github.com/pollev-watcher
-// @version      0.2.0
+// @version      0.2.1
 // @description  Notify Telegram when a Poll Everywhere activity becomes active.
+// @license      MIT
+// @homepageURL  https://github.com/KKazuhaK/pollev-watcher
+// @supportURL   https://github.com/KKazuhaK/pollev-watcher/issues
+// @downloadURL  https://raw.githubusercontent.com/KKazuhaK/pollev-watcher/main/src/pollev-watcher.user.js
+// @updateURL    https://raw.githubusercontent.com/KKazuhaK/pollev-watcher/main/src/pollev-watcher.user.js
 // @match        https://pollev.com/*
 // @match        https://www.polleverywhere.com/*
 // @match        https://pe.app/*

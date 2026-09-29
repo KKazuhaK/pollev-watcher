@@ -4,6 +4,16 @@ PollEv Watcher is a small Tampermonkey userscript that watches a Poll Everywhere
 
 It also shows a local desktop notification, plays a short sound when the browser permits it, and flashes the tab title.
 
+PollEv Watcher is an independent project and is not affiliated with or endorsed by Poll Everywhere.
+
+## One-click install
+
+1. Install [Tampermonkey](https://www.tampermonkey.net/).
+2. [Install PollEv Watcher](https://raw.githubusercontent.com/KKazuhaK/pollev-watcher/main/src/pollev-watcher.user.js).
+3. Open a supported Poll Everywhere participant page and configure Telegram from the Tampermonkey menu.
+
+When installed from GitHub, Tampermonkey uses the metadata in the script to check this repository for newer versions.
+
 ## Compatibility
 
 | Poll Everywhere version | Participant URL | Support |
@@ -36,7 +46,7 @@ The watcher deliberately uses visible page state instead of private Poll Everywh
 5. The script reads the bot's recent updates and suggests the Chat ID from your `/start` message. Confirm it when prompted.
 6. Choose **Send Telegram test notification** to verify the setup.
 
-The Bot Token and Chat ID are stored in Tampermonkey's script storage. They are not part of this repository. Do not add either value to source files, screenshots, issues, or commits.
+The Bot Token and Chat ID are stored in Tampermonkey's script storage. They are not part of this repository. Do not add either value to source files, screenshots, issues, or commits. See [PRIVACY.md](PRIVACY.md) for the complete data-handling summary.
 
 ## How detection works
 
