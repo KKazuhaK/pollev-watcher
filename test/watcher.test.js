@@ -7,7 +7,7 @@ const vm = require('node:vm');
 const scriptPath = path.join(__dirname, '..', 'src', 'pollev-watcher.user.js');
 const source = fs.readFileSync(scriptPath, 'utf8');
 
-function createHarness() {
+function createHarness(options = {}) {
   let now = 1_000;
   let observerCallback;
   let evaluateInterval;
@@ -53,6 +53,7 @@ function createHarness() {
   const values = new Map([
     ['telegramBotToken', 'test-token'],
     ['telegramChatId', '12345678'],
+    ['locationMockSavedLocations', options.savedLocations || []],
   ]);
 
   const context = {
@@ -76,6 +77,7 @@ function createHarness() {
       menuEntries.set(id, { label, callback });
       return id;
     },
+    GM_unregisterMenuCommand: (id) => menuEntries.delete(id),
     GM_setValue: (key, value) => values.set(key, value),
     GM_xmlhttpRequest: (options) => {
       telegramMessages += 1;
@@ -215,4 +217,25 @@ test('menu uses one settings panel instead of separate toggle commands', () => {
 test('metadata loads Leaflet map resources', () => {
   assert.match(source, /@require\s+https:\/\/unpkg\.com\/leaflet@1\.9\.4\/dist\/leaflet\.js/);
   assert.match(source, /@resource\s+leafletCSS\s+https:\/\/unpkg\.com\/leaflet@1\.9\.4\/dist\/leaflet\.css/);
+});
+
+test('saved locations appear as quick menu commands and activate location mocking', () => {
+  const harness = createHarness({
+    savedLocations: [{
+      id: 'uci',
+      name: 'UCI 校园',
+      latitude: 33.6405,
+      longitude: -117.8443,
+      accuracy: 12,
+    }],
+  });
+
+  assert.equal(harness.menuLabels().some((label) => label === '📌 UCI 校园'), true);
+  harness.runMenu('📌 UCI 校园');
+  let received;
+  harness.getLocation((position) => { received = position; });
+  assert.equal(received.coords.latitude, 33.6405);
+  assert.equal(received.coords.longitude, -117.8443);
+  assert.equal(received.coords.accuracy, 12);
+  assert.equal(harness.menuLabels().some((label) => label === '📍 定位 [已开启]'), true);
 });

@@ -16,6 +16,7 @@
 // @grant        GM_setValue
 // @grant        GM_deleteValue
 // @grant        GM_registerMenuCommand
+// @grant        GM_unregisterMenuCommand
 // @grant        GM_notification
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getResourceText
@@ -39,6 +40,7 @@
     longitude: 'locationMockLongitude',
     accuracy: 'locationMockAccuracy',
     locationErrorCode: 'locationMockErrorCode',
+    savedLocations: 'locationMockSavedLocations',
   });
 
   const LOCATION_DEFAULTS = Object.freeze({
@@ -86,6 +88,7 @@
   let watcherToggleMenuId = null;
   let locationToggleMenuId = null;
   let settingsMenuId = null;
+  let savedLocationMenuIds = [];
   let leafletCssAdded = false;
 
   const pageWindow = typeof unsafeWindow === 'undefined' ? window : unsafeWindow;
@@ -104,6 +107,36 @@
 
   function isLocationMockEnabled() {
     return Boolean(locationSetting('enabled'));
+  }
+
+  function savedLocations() {
+    const locations = GM_getValue(STORAGE_KEYS.savedLocations, []);
+    if (!Array.isArray(locations)) return [];
+    return locations.filter((location) => location
+      && typeof location.id === 'string'
+      && typeof location.name === 'string'
+      && Number.isFinite(Number(location.latitude))
+      && Number(location.latitude) >= -90
+      && Number(location.latitude) <= 90
+      && Number.isFinite(Number(location.longitude))
+      && Number(location.longitude) >= -180
+      && Number(location.longitude) <= 180
+      && Number.isFinite(Number(location.accuracy))
+      && Number(location.accuracy) > 0);
+  }
+
+  function storeSavedLocations(locations) {
+    GM_setValue(STORAGE_KEYS.savedLocations, locations);
+  }
+
+  function activateSavedLocation(location) {
+    GM_setValue(STORAGE_KEYS.latitude, Number(location.latitude));
+    GM_setValue(STORAGE_KEYS.longitude, Number(location.longitude));
+    GM_setValue(STORAGE_KEYS.accuracy, Number(location.accuracy));
+    GM_setValue(STORAGE_KEYS.locationErrorCode, 0);
+    GM_setValue(STORAGE_KEYS.locationEnabled, true);
+    updateLocationBadge();
+    refreshControlMenus();
   }
 
   function watcherToggleMenuLabel() {
@@ -144,6 +177,11 @@
       openSettingsPanel,
       settingsMenuId === null ? undefined : { id: settingsMenuId },
     );
+    savedLocationMenuIds.forEach((id) => GM_unregisterMenuCommand(id));
+    savedLocationMenuIds = savedLocations().map((location) => GM_registerMenuCommand(
+      `📌 ${location.name}`,
+      () => activateSavedLocation(location),
+    ));
   }
 
   function buildMockPosition() {
@@ -682,7 +720,7 @@
         }
         #pollev-watcher-settings .leaflet-control-attribution { font-size: 9px; }
         #pollev-watcher-settings .pw-field label { display: block; margin-bottom: 4px; color: #475569; font-size: 12px; }
-        #pollev-watcher-settings input[type="number"], #pollev-watcher-settings select {
+        #pollev-watcher-settings input[type="number"], #pollev-watcher-settings input[type="text"], #pollev-watcher-settings select {
           width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff;
         }
         #pollev-watcher-settings .pw-actions { display: flex; gap: 9px; margin-top: 14px; }
@@ -692,6 +730,16 @@
         }
         #pollev-watcher-settings .pw-primary { background: #2563eb; color: #fff; }
         #pollev-watcher-settings .pw-status { min-height: 19px; margin-top: 10px; color: #475569; font-size: 12px; }
+        #pollev-watcher-settings .pw-favorites { margin-top: 16px; padding-top: 14px; border-top: 1px solid #e5e7eb; }
+        #pollev-watcher-settings .pw-favorite-compose { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 8px; }
+        #pollev-watcher-settings .pw-favorite-list { display: grid; gap: 7px; margin-top: 9px; }
+        #pollev-watcher-settings .pw-favorite-item {
+          display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 7px;
+          padding: 8px 9px; border-radius: 9px; background: #f1f5f9;
+        }
+        #pollev-watcher-settings .pw-favorite-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        #pollev-watcher-settings .pw-small { padding: 6px 9px; font-size: 12px; }
+        #pollev-watcher-settings .pw-danger { color: #b91c1c; }
       </style>
       <div class="pw-card" role="dialog" aria-modal="true" aria-labelledby="pw-settings-title">
         <div class="pw-title"><span id="pw-settings-title">PollEv Watcher 设置</span><button class="pw-close" aria-label="关闭">×</button></div>
@@ -712,6 +760,12 @@
         </div>
         <div class="pw-field"><label for="pw-error-mode">定位结果</label><select id="pw-error-mode"><option value="0">成功</option><option value="1">权限被拒绝</option><option value="2">位置不可用</option><option value="3">请求超时</option></select></div>
         <div class="pw-actions"><button class="pw-button pw-primary" id="pw-save-location">保存定位设置</button><button class="pw-button" id="pw-test-location">自检</button></div>
+        <div class="pw-favorites">
+          <div class="pw-label">收藏地点</div>
+          <div class="pw-note">收藏后会出现在 Tampermonkey 菜单中，可一键切换。</div>
+          <div class="pw-favorite-compose"><input id="pw-favorite-name" type="text" maxlength="40" placeholder="地点名称，例如 UCI 校园"><button class="pw-button" id="pw-add-favorite">收藏当前坐标</button></div>
+          <div class="pw-favorite-list" id="pw-favorite-list"></div>
+        </div>
         <div class="pw-status" id="pw-settings-status"></div>
       </div>`;
 
@@ -721,6 +775,8 @@
     const longitude = overlay.querySelector('#pw-longitude');
     const accuracy = overlay.querySelector('#pw-accuracy');
     const errorMode = overlay.querySelector('#pw-error-mode');
+    const favoriteName = overlay.querySelector('#pw-favorite-name');
+    const favoriteList = overlay.querySelector('#pw-favorite-list');
     const status = overlay.querySelector('#pw-settings-status');
 
     watchToggle.checked = Boolean(GM_getValue(STORAGE_KEYS.enabled, true));
@@ -732,37 +788,54 @@
 
     (document.body || document.documentElement).appendChild(overlay);
 
+    let map = null;
+    let marker = null;
+    const setFormPosition = (position, message = '') => {
+      latitude.value = Number(position.latitude).toFixed(6);
+      longitude.value = Number(position.longitude).toFixed(6);
+      if (map && marker) {
+        const latLng = [Number(position.latitude), Number(position.longitude)];
+        marker.setLatLng(latLng);
+        map.setView(latLng, Math.max(map.getZoom(), 15));
+      }
+      if (message) status.textContent = message;
+    };
+
     const leaflet = typeof L === 'undefined' ? null : L;
     if (leaflet) {
       const initialPosition = [Number(latitude.value), Number(longitude.value)];
-      const map = leaflet.map(overlay.querySelector('#pw-location-map')).setView(initialPosition, 15);
+      map = leaflet.map(overlay.querySelector('#pw-location-map')).setView(initialPosition, 15);
       leaflet.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
       }).addTo(map);
-      const marker = leaflet.marker(initialPosition, {
+      marker = leaflet.marker(initialPosition, {
         draggable: true,
         autoPan: true,
         title: '拖动选择位置',
         icon: leaflet.divIcon({ className: 'pw-map-pin', iconSize: [26, 36], iconAnchor: [13, 34] }),
       }).addTo(map);
 
-      const selectPosition = (position) => {
-        latitude.value = Number(position.lat).toFixed(6);
-        longitude.value = Number(position.lng).toFixed(6);
-        marker.setLatLng(position);
-        status.textContent = '地图位置已选择；点击“保存定位设置”后生效。';
-      };
-      map.on('click', (event) => selectPosition(event.latlng));
-      marker.on('dragend', () => selectPosition(marker.getLatLng()));
+      map.on('click', (event) => setFormPosition({
+        latitude: event.latlng.lat,
+        longitude: event.latlng.lng,
+      }, '地图位置已选择；点击“保存定位设置”后生效。'));
+      marker.on('dragend', () => {
+        const position = marker.getLatLng();
+        setFormPosition({ latitude: position.lat, longitude: position.lng }, '标记位置已更新；点击“保存定位设置”后生效。');
+      });
       window.setTimeout(() => map.invalidateSize(), 0);
     } else {
       status.textContent = '地图组件加载失败，仍可手动输入坐标。';
     }
 
-    overlay.querySelector('.pw-close').addEventListener('click', () => overlay.remove());
+    const closePanel = () => {
+      map?.remove();
+      overlay.remove();
+    };
+    overlay.querySelector('.pw-close').addEventListener('click', closePanel);
     overlay.addEventListener('click', (event) => {
-      if (event.target === overlay) overlay.remove();
+      if (event.target === overlay) closePanel();
     });
     watchToggle.addEventListener('change', () => {
       GM_setValue(STORAGE_KEYS.enabled, watchToggle.checked);
@@ -798,6 +871,85 @@
       status.textContent = '定位设置已保存。请刷新页面后重新检查定位。';
     });
     overlay.querySelector('#pw-test-location').addEventListener('click', testLocationMock);
+
+    function renderSavedLocations() {
+      favoriteList.replaceChildren();
+      const locations = savedLocations();
+      if (!locations.length) {
+        const empty = document.createElement('div');
+        empty.className = 'pw-note';
+        empty.textContent = '还没有收藏地点。';
+        favoriteList.appendChild(empty);
+        return;
+      }
+
+      locations.forEach((location) => {
+        const row = document.createElement('div');
+        row.className = 'pw-favorite-item';
+        const name = document.createElement('div');
+        name.className = 'pw-favorite-name';
+        name.textContent = location.name;
+        name.title = `${location.latitude}, ${location.longitude}`;
+        const useButton = document.createElement('button');
+        useButton.className = 'pw-button pw-small';
+        useButton.textContent = '使用';
+        useButton.addEventListener('click', () => {
+          activateSavedLocation(location);
+          locationToggle.checked = true;
+          errorMode.value = '0';
+          accuracy.value = String(location.accuracy);
+          setFormPosition(location, `已切换到“${location.name}”。请刷新页面后重新检查定位。`);
+        });
+        const deleteButton = document.createElement('button');
+        deleteButton.className = 'pw-button pw-small pw-danger';
+        deleteButton.textContent = '删除';
+        deleteButton.addEventListener('click', () => {
+          if (!window.confirm(`删除收藏地点“${location.name}”吗？`)) return;
+          storeSavedLocations(savedLocations().filter(({ id }) => id !== location.id));
+          refreshControlMenus();
+          renderSavedLocations();
+          status.textContent = `已删除“${location.name}”。`;
+        });
+        row.append(name, useButton, deleteButton);
+        favoriteList.appendChild(row);
+      });
+    }
+
+    overlay.querySelector('#pw-add-favorite').addEventListener('click', () => {
+      const name = favoriteName.value.trim();
+      const nextLocation = {
+        id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+        name,
+        latitude: Number(latitude.value),
+        longitude: Number(longitude.value),
+        accuracy: Number(accuracy.value),
+      };
+      if (!name) {
+        status.textContent = '请先输入收藏地点名称。';
+        return;
+      }
+      if (!Number.isFinite(nextLocation.latitude) || nextLocation.latitude < -90 || nextLocation.latitude > 90
+        || !Number.isFinite(nextLocation.longitude) || nextLocation.longitude < -180 || nextLocation.longitude > 180
+        || !Number.isFinite(nextLocation.accuracy) || nextLocation.accuracy <= 0) {
+        status.textContent = '当前坐标或精度格式不正确，无法收藏。';
+        return;
+      }
+      const locations = savedLocations();
+      const duplicateIndex = locations.findIndex((location) => location.name.toLowerCase() === name.toLowerCase());
+      if (duplicateIndex >= 0) {
+        nextLocation.id = locations[duplicateIndex].id;
+        locations.splice(duplicateIndex, 1, nextLocation);
+      } else {
+        locations.push(nextLocation);
+      }
+      storeSavedLocations(locations);
+      favoriteName.value = '';
+      refreshControlMenus();
+      renderSavedLocations();
+      status.textContent = duplicateIndex >= 0 ? `已更新收藏地点“${name}”。` : `已收藏“${name}”。`;
+    });
+
+    renderSavedLocations();
 
   }
 

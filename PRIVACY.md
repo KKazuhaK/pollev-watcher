@@ -11,6 +11,7 @@ The following values are stored in Tampermonkey's per-script storage in the user
 - Whether monitoring is enabled or paused
 - Whether location testing is enabled
 - The configured test coordinates, accuracy, and simulated error mode
+- Any location names and coordinates the user chooses to save as favorites
 
 These values are not included in the source repository.
 

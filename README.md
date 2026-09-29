@@ -35,7 +35,7 @@ The location-testing controls are part of PollEv Watcher; no second userscript o
 4. Refresh the page before triggering a new location check.
 5. Use the panel's **Self-test** button to verify the coordinates returned to the page.
 
-The feature is disabled by default. While enabled, a purple badge in the lower-left corner displays the configured coordinates. It affects only the Poll Everywhere domains listed in the userscript metadata. The map uses OpenStreetMap tiles and does not require a Google Maps API key.
+The feature is disabled by default. While enabled, a purple badge in the lower-left corner displays the configured coordinates. Favorite locations can be named and saved from the settings panel; each favorite also appears as a one-click `📌` command in the Tampermonkey menu. It affects only the Poll Everywhere domains listed in the userscript metadata. The map uses OpenStreetMap tiles and does not require a Google Maps API key.
 
 ## Requirements
 
