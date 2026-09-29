@@ -1,10 +1,10 @@
 {
   "name": "pollev-watcher",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Notify Telegram when a Poll Everywhere activity becomes active.",
   "scripts": {
-    "check": "node --check src/pollev-watcher.user.js"
+    "check": "node --check src/pollev-watcher.user.js && node --test"
   },
   "license": "MIT"
 }

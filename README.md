@@ -4,6 +4,15 @@ PollEv Watcher is a small Tampermonkey userscript that watches a Poll Everywhere
 
 It also shows a local desktop notification, plays a short sound when the browser permits it, and flashes the tab title.
 
+## Compatibility
+
+| Poll Everywhere version | Participant URL | Support |
+| --- | --- | --- |
+| 1.0 | `pollev.com/<join-code>` | Verified |
+| 2.0 | `pe.app/<join-code>` | Experimental; needs validation with a live 2.0 session |
+
+The watcher deliberately uses visible page state instead of private Poll Everywhere APIs. It recognizes several waiting messages and then watches for the waiting view to disappear, making it tolerant of many layout changes between 1.0 and 2.0.
+
 ## Requirements
 
 - Chrome or another Chromium-based browser
@@ -31,7 +40,7 @@ The Bot Token and Chat ID are stored in Tampermonkey's script storage. They are 
 
 ## How detection works
 
-The script first waits until it sees Poll Everywhere's waiting message. It then watches page changes with a `MutationObserver`. When the waiting screen disappears for long enough, the script treats the activity as active and sends one notification.
+The script first waits until it sees Poll Everywhere's waiting message. It then watches page changes with a `MutationObserver`. When the waiting screen disappears for long enough, the script treats the activity as active and sends one notification. If the page returns to waiting, the notification latch resets so the next activation sends another notification.
 
 This transition requirement prevents a notification merely because an unrelated Poll Everywhere page was opened.
 

@@ -1,10 +1,11 @@
 // ==UserScript==
 // @name         PollEv Watcher
 // @namespace    https://github.com/pollev-watcher
-// @version      0.1.0
+// @version      0.2.0
 // @description  Notify Telegram when a Poll Everywhere activity becomes active.
 // @match        https://pollev.com/*
 // @match        https://www.polleverywhere.com/*
+// @match        https://pe.app/*
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_deleteValue
@@ -34,12 +35,16 @@
     /waiting for .+ presentation to begin/i,
     /as soon as the activity is active/i,
     /waiting for the presentation to begin/i,
+    /waiting for (?:the )?(?:presenter|host).+to (?:begin|start)/i,
+    /waiting for .+ to (?:begin|start)/i,
+    /activity (?:has not|hasn't) started/i,
   ];
 
   const INACTIVE_PATTERNS = [
     /there are no active activities/i,
     /no active activit(?:y|ies)/i,
     /presentation has ended/i,
+    /session has ended/i,
   ];
 
   const CHECK_DELAY_MS = 500;
