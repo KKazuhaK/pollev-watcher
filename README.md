@@ -4,7 +4,7 @@ PollEv Watcher is a small Tampermonkey userscript that watches a Poll Everywhere
 
 It also shows a local desktop notification, plays a short sound when the browser permits it, and flashes the tab title.
 
-An optional location-testing mode can override the browser Geolocation API on supported Poll Everywhere pages. It is disabled by default, configured from a compact settings panel with visual switches and an interactive map, and shows a visible badge whenever it is active. The Tampermonkey menu provides independent status-labelled quick toggles for monitoring, notifications, and location testing.
+An optional location-testing mode can override the browser Geolocation API on supported Poll Everywhere pages. It is disabled by default, configured from a sidebar-based settings panel with visual switches and an interactive map, and shows a visible badge whenever it is active. The Tampermonkey menu provides independent status-labelled quick toggles for monitoring, notifications, and location testing. Unconfigured notification and location features are clearly labelled `[未配置]`.
 
 PollEv Watcher is an independent project and is not affiliated with or endorsed by Poll Everywhere.
 
@@ -12,7 +12,7 @@ PollEv Watcher is an independent project and is not affiliated with or endorsed 
 
 1. Install [Tampermonkey](https://www.tampermonkey.net/).
 2. [Install PollEv Watcher](https://raw.githubusercontent.com/KKazuhaK/pollev-watcher/main/src/pollev-watcher.user.js).
-3. Open a supported Poll Everywhere participant page and configure Telegram from the Tampermonkey menu.
+3. Open a supported Poll Everywhere participant page, choose **Watcher settings** from the Tampermonkey menu, and configure Telegram in the **Notifications** section.
 
 When installed from GitHub, Tampermonkey uses the metadata in the script to check this repository for newer versions.
 
@@ -56,9 +56,9 @@ The feature is disabled by default. While enabled, a purple badge in the lower-l
 1. Create a bot with `@BotFather` and copy its Bot Token.
 2. Open your new bot and send it `/start`.
 3. On the Poll Everywhere page, open Tampermonkey's extension menu.
-4. Choose **Configure Telegram** and enter the Bot Token.
-5. The script reads the bot's recent updates and suggests the Chat ID from your `/start` message. Confirm it when prompted.
-6. Choose **Send Telegram test notification** to verify the setup.
+4. Open **Watcher settings → Notifications**, enter the Bot Token, and either enter a Chat ID or use **Auto-detect Chat ID**.
+5. The script reads the bot's recent updates and fills the Chat ID from your `/start` message; review it and save the configuration.
+6. Choose **Send test notification** in the same settings section to verify the setup.
 
 The Bot Token and Chat ID are stored in Tampermonkey's script storage. They are not part of this repository. Do not add either value to source files, screenshots, issues, or commits. See [PRIVACY.md](PRIVACY.md) for the complete data-handling summary.
 

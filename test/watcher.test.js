@@ -51,10 +51,17 @@ function createHarness(options = {}) {
   };
 
   const values = new Map([
-    ['telegramBotToken', 'test-token'],
-    ['telegramChatId', '12345678'],
+    ['telegramBotToken', options.telegramConfigured === false ? '' : '123456:Test_token'],
+    ['telegramChatId', options.telegramConfigured === false ? '' : '12345678'],
     ['locationMockSavedLocations', options.savedLocations || []],
   ]);
+  if (options.locationConfigured) {
+    values.set('locationMockConfigured', true);
+    values.set('locationMockEnabled', false);
+    values.set('locationMockLatitude', 33.6405);
+    values.set('locationMockLongitude', -117.8443);
+    values.set('locationMockAccuracy', 10);
+  }
 
   const context = {
     console,
@@ -199,13 +206,15 @@ test('location mocking returns configured coordinates when enabled', () => {
 });
 
 test('menu uses one settings panel instead of separate toggle commands', () => {
-  const harness = createHarness();
+  const harness = createHarness({ locationConfigured: true });
   const labels = harness.menuLabels();
 
   assert.equal(labels.some((label) => label === '⏯️ 监测 [已开启]'), true);
   assert.equal(labels.some((label) => label === '🔔 通知 [已开启]'), true);
   assert.equal(labels.some((label) => label === '📍 定位 [已关闭]'), true);
   assert.equal(labels.some((label) => label.includes('打开 Watcher 设置')), true);
+  assert.equal(labels.some((label) => label.includes('配置 Telegram')), false);
+  assert.equal(labels.some((label) => label.includes('Telegram 测试通知')), false);
   assert.equal(labels.some((label) => label.includes('设置模拟坐标')), false);
 
   harness.runMenu('监测 [已开启]');
@@ -215,6 +224,14 @@ test('menu uses one settings panel instead of separate toggle commands', () => {
   assert.equal(updatedLabels.some((label) => label === '⏯️ 监测 [已关闭]'), true);
   assert.equal(updatedLabels.some((label) => label === '🔔 通知 [已关闭]'), true);
   assert.equal(updatedLabels.some((label) => label === '📍 定位 [已开启]'), true);
+});
+
+test('menu shows unconfigured states until Telegram and location are configured', () => {
+  const harness = createHarness({ telegramConfigured: false });
+  const labels = harness.menuLabels();
+
+  assert.equal(labels.some((label) => label === '🔔 通知 [未配置]'), true);
+  assert.equal(labels.some((label) => label === '📍 定位 [未配置]'), true);
 });
 
 test('notification toggle suppresses alerts without disabling monitoring', () => {
