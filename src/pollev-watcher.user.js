@@ -2,7 +2,7 @@
 // @name         PollEv Watcher
 // @author       KKazuhaK
 // @namespace    https://github.com/pollev-watcher
-// @version      0.4.1
+// @version      0.5.0
 // @description  Notify Telegram when a Poll Everywhere activity becomes active.
 // @license      MIT
 // @homepageURL  https://github.com/KKazuhaK/pollev-watcher
@@ -18,7 +18,11 @@
 // @grant        GM_registerMenuCommand
 // @grant        GM_notification
 // @grant        GM_xmlhttpRequest
+// @grant        GM_getResourceText
+// @grant        GM_addStyle
 // @grant        unsafeWindow
+// @require      https://unpkg.com/leaflet@1.9.4/dist/leaflet.js
+// @resource     leafletCSS https://unpkg.com/leaflet@1.9.4/dist/leaflet.css
 // @connect      api.telegram.org
 // @run-at       document-start
 // ==/UserScript==
@@ -79,6 +83,8 @@
   let notificationSent = false;
   let lastActivityFingerprint = '';
   let audioContext = null;
+  let settingsMenuId = null;
+  let leafletCssAdded = false;
 
   const pageWindow = typeof unsafeWindow === 'undefined' ? window : unsafeWindow;
   const geolocation = pageWindow.navigator?.geolocation;
@@ -96,6 +102,17 @@
 
   function isLocationMockEnabled() {
     return Boolean(locationSetting('enabled'));
+  }
+
+  function settingsMenuLabel() {
+    const watcher = GM_getValue(STORAGE_KEYS.enabled, true) ? '已开启' : '已关闭';
+    const locationMock = isLocationMockEnabled() ? '已开启' : '已关闭';
+    return `🎛️ Watcher 设置 [检测${watcher}] [定位${locationMock}]`;
+  }
+
+  function refreshSettingsMenu() {
+    const options = settingsMenuId === null ? undefined : { id: settingsMenuId };
+    settingsMenuId = GM_registerMenuCommand(settingsMenuLabel(), openSettingsPanel, options);
   }
 
   function buildMockPosition() {
@@ -568,6 +585,11 @@
   function openSettingsPanel() {
     document.getElementById('pollev-watcher-settings')?.remove();
 
+    if (!leafletCssAdded) {
+      GM_addStyle(GM_getResourceText('leafletCSS'));
+      leafletCssAdded = true;
+    }
+
     const overlay = document.createElement('div');
     overlay.id = 'pollev-watcher-settings';
     overlay.innerHTML = `
@@ -581,7 +603,8 @@
         }
         #pollev-watcher-settings * { box-sizing: border-box; }
         #pollev-watcher-settings .pw-card {
-          width: min(460px, 100%); padding: 22px; border-radius: 16px;
+          width: min(560px, 100%); max-height: calc(100vh - 40px); overflow: auto;
+          padding: 22px; border-radius: 16px;
           background: #fff; box-shadow: 0 22px 70px rgba(0, 0, 0, .32);
         }
         #pollev-watcher-settings .pw-title {
@@ -614,6 +637,19 @@
         #pollev-watcher-settings .pw-grid {
           display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 12px 0;
         }
+        #pollev-watcher-settings .pw-map-label { margin: 14px 0 6px; color: #475569; font-size: 12px; }
+        #pollev-watcher-settings .pw-map { height: 240px; border: 1px solid #cbd5e1; border-radius: 10px; overflow: hidden; }
+        #pollev-watcher-settings .pw-map-pin {
+          width: 26px !important; height: 36px !important; margin: 0 !important;
+          border: 0; background: transparent;
+        }
+        #pollev-watcher-settings .pw-map-pin::before {
+          content: ""; display: block; width: 24px; height: 24px;
+          border: 3px solid #fff; border-radius: 50% 50% 50% 0;
+          background: #dc2626; box-shadow: 0 2px 7px rgba(0, 0, 0, .35);
+          transform: rotate(-45deg);
+        }
+        #pollev-watcher-settings .leaflet-control-attribution { font-size: 9px; }
         #pollev-watcher-settings .pw-field label { display: block; margin-bottom: 4px; color: #475569; font-size: 12px; }
         #pollev-watcher-settings input[type="number"], #pollev-watcher-settings select {
           width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff;
@@ -636,6 +672,8 @@
           <div><div class="pw-label">定位模拟</div><div class="pw-note">仅作用于 Poll Everywhere 页面；更改后建议刷新</div></div>
           <label class="pw-switch"><input id="pw-location-toggle" type="checkbox"><span class="pw-slider"></span></label>
         </div>
+        <div class="pw-map-label">点击地图选择位置，或拖动红色标记</div>
+        <div class="pw-map" id="pw-location-map"></div>
         <div class="pw-grid">
           <div class="pw-field"><label for="pw-latitude">Latitude</label><input id="pw-latitude" type="number" min="-90" max="90" step="any"></div>
           <div class="pw-field"><label for="pw-longitude">Longitude</label><input id="pw-longitude" type="number" min="-180" max="180" step="any"></div>
@@ -661,6 +699,36 @@
     accuracy.value = String(locationSetting('accuracy'));
     errorMode.value = String(locationSetting('errorCode'));
 
+    (document.body || document.documentElement).appendChild(overlay);
+
+    const leaflet = typeof L === 'undefined' ? null : L;
+    if (leaflet) {
+      const initialPosition = [Number(latitude.value), Number(longitude.value)];
+      const map = leaflet.map(overlay.querySelector('#pw-location-map')).setView(initialPosition, 15);
+      leaflet.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      }).addTo(map);
+      const marker = leaflet.marker(initialPosition, {
+        draggable: true,
+        autoPan: true,
+        title: '拖动选择位置',
+        icon: leaflet.divIcon({ className: 'pw-map-pin', iconSize: [26, 36], iconAnchor: [13, 34] }),
+      }).addTo(map);
+
+      const selectPosition = (position) => {
+        latitude.value = Number(position.lat).toFixed(6);
+        longitude.value = Number(position.lng).toFixed(6);
+        marker.setLatLng(position);
+        status.textContent = '地图位置已选择；点击“保存定位设置”后生效。';
+      };
+      map.on('click', (event) => selectPosition(event.latlng));
+      marker.on('dragend', () => selectPosition(marker.getLatLng()));
+      window.setTimeout(() => map.invalidateSize(), 0);
+    } else {
+      status.textContent = '地图组件加载失败，仍可手动输入坐标。';
+    }
+
     overlay.querySelector('.pw-close').addEventListener('click', () => overlay.remove());
     overlay.addEventListener('click', (event) => {
       if (event.target === overlay) overlay.remove();
@@ -668,11 +736,13 @@
     watchToggle.addEventListener('change', () => {
       GM_setValue(STORAGE_KEYS.enabled, watchToggle.checked);
       evaluateState();
+      refreshSettingsMenu();
       status.textContent = `活动提醒已${watchToggle.checked ? '开启' : '暂停'}。`;
     });
     locationToggle.addEventListener('change', () => {
       GM_setValue(STORAGE_KEYS.locationEnabled, locationToggle.checked);
       updateLocationBadge();
+      refreshSettingsMenu();
       status.textContent = `定位模拟已${locationToggle.checked ? '开启' : '关闭'}。请刷新页面后重新检查定位。`;
     });
     overlay.querySelector('#pw-save-location').addEventListener('click', () => {
@@ -698,7 +768,6 @@
     });
     overlay.querySelector('#pw-test-location').addEventListener('click', testLocationMock);
 
-    (document.body || document.documentElement).appendChild(overlay);
   }
 
   function clearTelegramConfig() {
@@ -710,7 +779,7 @@
 
   GM_registerMenuCommand('⚙️ 配置 Telegram', () => void configureTelegram());
   GM_registerMenuCommand('🧪 发送 Telegram 测试通知', () => void testTelegram());
-  GM_registerMenuCommand('🎛️ 打开 Watcher 设置', openSettingsPanel);
+  refreshSettingsMenu();
   GM_registerMenuCommand('🗑️ 删除 Telegram 配置', clearTelegramConfig);
 
   function startWatcher() {

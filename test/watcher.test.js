@@ -66,6 +66,8 @@ function createHarness() {
       observe() {}
     },
     GM_deleteValue: (key) => values.delete(key),
+    GM_addStyle: () => {},
+    GM_getResourceText: () => '',
     GM_getValue: (key, fallback) => values.has(key) ? values.get(key) : fallback,
     GM_notification: () => { localAlerts += 1; },
     GM_registerMenuCommand: (label) => { menuLabels.push(label); },
@@ -187,7 +189,12 @@ test('location mocking returns configured coordinates when enabled', () => {
 test('menu uses one settings panel instead of separate toggle commands', () => {
   const labels = createHarness().menuLabels();
 
-  assert.equal(labels.some((label) => label.includes('打开 Watcher 设置')), true);
+  assert.equal(labels.some((label) => label.includes('[检测已开启] [定位已关闭]')), true);
   assert.equal(labels.some((label) => label.includes('开启/关闭定位')), false);
   assert.equal(labels.some((label) => label.includes('设置模拟坐标')), false);
+});
+
+test('metadata loads Leaflet map resources', () => {
+  assert.match(source, /@require\s+https:\/\/unpkg\.com\/leaflet@1\.9\.4\/dist\/leaflet\.js/);
+  assert.match(source, /@resource\s+leafletCSS\s+https:\/\/unpkg\.com\/leaflet@1\.9\.4\/dist\/leaflet\.css/);
 });
