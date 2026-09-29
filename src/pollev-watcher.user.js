@@ -2,7 +2,7 @@
 // @name         PollEv Watcher
 // @author       KKazuhaK
 // @namespace    https://github.com/pollev-watcher
-// @version      0.6.0
+// @version      0.6.1
 // @description  Notify Telegram when a Poll Everywhere activity becomes active.
 // @license      MIT
 // @homepageURL  https://github.com/KKazuhaK/pollev-watcher
@@ -864,13 +864,13 @@
       chatIdInput.value = String(GM_getValue(STORAGE_KEYS.chatId, ''));
     };
 
-    const setFormPosition = (position, message = '') => {
+    const setFormPosition = (position, message = '', recenter = true) => {
       latitude.value = Number(position.latitude).toFixed(6);
       longitude.value = Number(position.longitude).toFixed(6);
       if (map && marker) {
         const latLng = [Number(position.latitude), Number(position.longitude)];
         marker.setLatLng(latLng);
-        map.setView(latLng, Math.max(map.getZoom(), 15));
+        if (recenter) map.setView(latLng, Math.max(map.getZoom(), 15));
       }
       if (message) setStatus(message);
     };
@@ -895,12 +895,20 @@
         draggable: true,
         autoPan: true,
         title: '拖动选择位置',
-        icon: leaflet.divIcon({ className: 'pw-map-pin', iconSize: [26, 36], iconAnchor: [13, 34] }),
+        icon: leaflet.divIcon({ className: 'pw-map-pin', iconSize: [26, 36], iconAnchor: [12, 29] }),
       }).addTo(map);
-      map.on('click', (event) => setFormPosition({ latitude: event.latlng.lat, longitude: event.latlng.lng }, '地图位置已选择；保存后生效。'));
+      map.on('click', (event) => setFormPosition(
+        { latitude: event.latlng.lat, longitude: event.latlng.lng },
+        '地图位置已选择；保存后生效。',
+        false,
+      ));
       marker.on('dragend', () => {
         const position = marker.getLatLng();
-        setFormPosition({ latitude: position.lat, longitude: position.lng }, '标记位置已更新；保存后生效。');
+        setFormPosition(
+          { latitude: position.lat, longitude: position.lng },
+          '标记位置已更新；保存后生效。',
+          false,
+        );
       });
       window.setTimeout(() => map.invalidateSize(), 0);
     };
