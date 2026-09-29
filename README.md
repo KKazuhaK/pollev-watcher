@@ -4,7 +4,7 @@ PollEv Watcher is a small Tampermonkey userscript that watches a Poll Everywhere
 
 It also shows a local desktop notification, plays a short sound when the browser permits it, and flashes the tab title.
 
-An optional location-testing mode can override the browser Geolocation API on supported Poll Everywhere pages. It is disabled by default, configured from a compact settings panel with visual switches and an interactive map, and shows a visible badge whenever it is active. The Tampermonkey menu provides status-labelled quick toggles for monitoring and location testing.
+An optional location-testing mode can override the browser Geolocation API on supported Poll Everywhere pages. It is disabled by default, configured from a compact settings panel with visual switches and an interactive map, and shows a visible badge whenever it is active. The Tampermonkey menu provides independent status-labelled quick toggles for monitoring, notifications, and location testing.
 
 PollEv Watcher is an independent project and is not affiliated with or endorsed by Poll Everywhere.
 

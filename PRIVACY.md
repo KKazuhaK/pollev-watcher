@@ -9,6 +9,7 @@ The following values are stored in Tampermonkey's per-script storage in the user
 - Telegram Bot Token
 - Telegram Chat ID
 - Whether monitoring is enabled or paused
+- Whether notifications are enabled or disabled
 - Whether location testing is enabled
 - The configured test coordinates, accuracy, and simulated error mode
 - Any location names and coordinates the user chooses to save as favorites

@@ -35,6 +35,7 @@
     botToken: 'telegramBotToken',
     chatId: 'telegramChatId',
     enabled: 'watcherEnabled',
+    notificationsEnabled: 'notificationsEnabled',
     locationEnabled: 'locationMockEnabled',
     latitude: 'locationMockLatitude',
     longitude: 'locationMockLongitude',
@@ -86,6 +87,7 @@
   let lastActivityFingerprint = '';
   let audioContext = null;
   let watcherToggleMenuId = null;
+  let notificationToggleMenuId = null;
   let locationToggleMenuId = null;
   let settingsMenuId = null;
   let savedLocationMenuIds = [];
@@ -149,6 +151,11 @@
     return `📍 定位 [${enabled ? '已开启' : '已关闭'}]`;
   }
 
+  function notificationToggleMenuLabel() {
+    const enabled = Boolean(GM_getValue(STORAGE_KEYS.notificationsEnabled, true));
+    return `🔔 通知 [${enabled ? '已开启' : '已关闭'}]`;
+  }
+
   function toggleWatcherFromMenu() {
     GM_setValue(STORAGE_KEYS.enabled, !GM_getValue(STORAGE_KEYS.enabled, true));
     evaluateState();
@@ -161,11 +168,24 @@
     refreshControlMenus();
   }
 
+  function toggleNotificationsFromMenu() {
+    GM_setValue(
+      STORAGE_KEYS.notificationsEnabled,
+      !GM_getValue(STORAGE_KEYS.notificationsEnabled, true),
+    );
+    refreshControlMenus();
+  }
+
   function refreshControlMenus() {
     watcherToggleMenuId = GM_registerMenuCommand(
       watcherToggleMenuLabel(),
       toggleWatcherFromMenu,
       watcherToggleMenuId === null ? undefined : { id: watcherToggleMenuId },
+    );
+    notificationToggleMenuId = GM_registerMenuCommand(
+      notificationToggleMenuLabel(),
+      toggleNotificationsFromMenu,
+      notificationToggleMenuId === null ? undefined : { id: notificationToggleMenuId },
     );
     locationToggleMenuId = GM_registerMenuCommand(
       locationToggleMenuLabel(),
@@ -485,6 +505,8 @@
     ].filter(Boolean).join('\n');
 
     setBadge(STATES.active);
+    if (!GM_getValue(STORAGE_KEYS.notificationsEnabled, true)) return;
+
     localNotification(
       isNextQuestion ? 'Poll Everywhere 新题已开启' : 'Poll Everywhere 已开启',
       '活动现在可以作答了。',
@@ -744,8 +766,12 @@
       <div class="pw-card" role="dialog" aria-modal="true" aria-labelledby="pw-settings-title">
         <div class="pw-title"><span id="pw-settings-title">PollEv Watcher 设置</span><button class="pw-close" aria-label="关闭">×</button></div>
         <div class="pw-row">
-          <div><div class="pw-label">活动开启提醒</div><div class="pw-note">Telegram、桌面通知、声音和标题闪烁</div></div>
+          <div><div class="pw-label">Poll 状态监测</div><div class="pw-note">检测等待、开启和题目切换</div></div>
           <label class="pw-switch"><input id="pw-watch-toggle" type="checkbox"><span class="pw-slider"></span></label>
+        </div>
+        <div class="pw-row">
+          <div><div class="pw-label">发送通知</div><div class="pw-note">控制 Telegram、桌面通知、声音和标题闪烁</div></div>
+          <label class="pw-switch"><input id="pw-notification-toggle" type="checkbox"><span class="pw-slider"></span></label>
         </div>
         <div class="pw-row">
           <div><div class="pw-label">定位模拟</div><div class="pw-note">仅作用于 Poll Everywhere 页面；更改后建议刷新</div></div>
@@ -770,6 +796,7 @@
       </div>`;
 
     const watchToggle = overlay.querySelector('#pw-watch-toggle');
+    const notificationToggle = overlay.querySelector('#pw-notification-toggle');
     const locationToggle = overlay.querySelector('#pw-location-toggle');
     const latitude = overlay.querySelector('#pw-latitude');
     const longitude = overlay.querySelector('#pw-longitude');
@@ -780,6 +807,7 @@
     const status = overlay.querySelector('#pw-settings-status');
 
     watchToggle.checked = Boolean(GM_getValue(STORAGE_KEYS.enabled, true));
+    notificationToggle.checked = Boolean(GM_getValue(STORAGE_KEYS.notificationsEnabled, true));
     locationToggle.checked = isLocationMockEnabled();
     latitude.value = String(locationSetting('latitude'));
     longitude.value = String(locationSetting('longitude'));
@@ -841,7 +869,12 @@
       GM_setValue(STORAGE_KEYS.enabled, watchToggle.checked);
       evaluateState();
       refreshControlMenus();
-      status.textContent = `活动提醒已${watchToggle.checked ? '开启' : '暂停'}。`;
+      status.textContent = `状态监测已${watchToggle.checked ? '开启' : '暂停'}。`;
+    });
+    notificationToggle.addEventListener('change', () => {
+      GM_setValue(STORAGE_KEYS.notificationsEnabled, notificationToggle.checked);
+      refreshControlMenus();
+      status.textContent = `通知已${notificationToggle.checked ? '开启' : '关闭'}。`;
     });
     locationToggle.addEventListener('change', () => {
       GM_setValue(STORAGE_KEYS.locationEnabled, locationToggle.checked);
