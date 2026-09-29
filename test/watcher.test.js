@@ -14,7 +14,16 @@ function createHarness() {
   let telegramMessages = 0;
   let localAlerts = 0;
   let questionTitle = '';
+  let nativeLocationCalls = 0;
   const elements = new Map();
+  const geolocation = {
+    getCurrentPosition(success) {
+      nativeLocationCalls += 1;
+      success({ coords: { latitude: 1, longitude: 2, accuracy: 3 } });
+    },
+    watchPosition() { return 10; },
+    clearWatch() {},
+  };
 
   const document = {
     body: { innerText: '' },
@@ -69,13 +78,16 @@ function createHarness() {
       confirm: () => true,
       focus() {},
       prompt: () => null,
+      navigator: { geolocation },
+      Geolocation: function Geolocation() {},
       clearInterval() {},
       clearTimeout() {},
       setInterval(callback) {
         evaluateInterval ||= callback;
         return 1;
       },
-      setTimeout() {
+      setTimeout(callback, delay) {
+        if (delay === 0) callback();
         return 1;
       },
     },
@@ -83,6 +95,7 @@ function createHarness() {
 
   context.window.document = document;
   context.window.location = context.location;
+  context.unsafeWindow = context.window;
   vm.runInNewContext(source, context);
 
   return {
@@ -104,6 +117,17 @@ function createHarness() {
       evaluateInterval();
     },
     counts: () => ({ telegramMessages, localAlerts }),
+    enableLocation(latitude = 33.64, longitude = -117.84, accuracy = 7) {
+      values.set('locationMockEnabled', true);
+      values.set('locationMockLatitude', latitude);
+      values.set('locationMockLongitude', longitude);
+      values.set('locationMockAccuracy', accuracy);
+      values.set('locationMockErrorCode', 0);
+    },
+    getLocation(callback) {
+      geolocation.getCurrentPosition(callback);
+    },
+    nativeLocationCalls: () => nativeLocationCalls,
   };
 }
 
@@ -135,4 +159,25 @@ test('a changed question heading sends one additional notification', () => {
 
   assert.equal(harness.counts().telegramMessages, 2);
   assert.equal(harness.counts().localAlerts, 2);
+});
+
+test('location mocking is disabled by default and delegates to the browser', () => {
+  const harness = createHarness();
+  let received;
+  harness.getLocation((position) => { received = position; });
+
+  assert.equal(received.coords.latitude, 1);
+  assert.equal(harness.nativeLocationCalls(), 1);
+});
+
+test('location mocking returns configured coordinates when enabled', () => {
+  const harness = createHarness();
+  harness.enableLocation();
+  let received;
+  harness.getLocation((position) => { received = position; });
+
+  assert.equal(received.coords.latitude, 33.64);
+  assert.equal(received.coords.longitude, -117.84);
+  assert.equal(received.coords.accuracy, 7);
+  assert.equal(harness.nativeLocationCalls(), 0);
 });

@@ -2,7 +2,7 @@
 // @name         PollEv Watcher
 // @author       KKazuhaK
 // @namespace    https://github.com/pollev-watcher
-// @version      0.3.0
+// @version      0.4.0
 // @description  Notify Telegram when a Poll Everywhere activity becomes active.
 // @license      MIT
 // @homepageURL  https://github.com/KKazuhaK/pollev-watcher
@@ -18,8 +18,9 @@
 // @grant        GM_registerMenuCommand
 // @grant        GM_notification
 // @grant        GM_xmlhttpRequest
+// @grant        unsafeWindow
 // @connect      api.telegram.org
-// @run-at       document-idle
+// @run-at       document-start
 // ==/UserScript==
 
 (function () {
@@ -29,6 +30,19 @@
     botToken: 'telegramBotToken',
     chatId: 'telegramChatId',
     enabled: 'watcherEnabled',
+    locationEnabled: 'locationMockEnabled',
+    latitude: 'locationMockLatitude',
+    longitude: 'locationMockLongitude',
+    accuracy: 'locationMockAccuracy',
+    locationErrorCode: 'locationMockErrorCode',
+  });
+
+  const LOCATION_DEFAULTS = Object.freeze({
+    enabled: false,
+    latitude: 33.6405,
+    longitude: -117.8443,
+    accuracy: 10,
+    errorCode: 0,
   });
 
   const STATES = Object.freeze({
@@ -65,6 +79,121 @@
   let notificationSent = false;
   let lastActivityFingerprint = '';
   let audioContext = null;
+
+  const pageWindow = typeof unsafeWindow === 'undefined' ? window : unsafeWindow;
+  const geolocation = pageWindow.navigator?.geolocation;
+  const mockWatches = new Map();
+  let nextMockWatchId = -1;
+
+  function locationSetting(key) {
+    const storageKey = key === 'enabled'
+      ? STORAGE_KEYS.locationEnabled
+      : key === 'errorCode'
+        ? STORAGE_KEYS.locationErrorCode
+        : STORAGE_KEYS[key];
+    return GM_getValue(storageKey, LOCATION_DEFAULTS[key]);
+  }
+
+  function isLocationMockEnabled() {
+    return Boolean(locationSetting('enabled'));
+  }
+
+  function buildMockPosition() {
+    return {
+      coords: {
+        latitude: Number(locationSetting('latitude')),
+        longitude: Number(locationSetting('longitude')),
+        accuracy: Number(locationSetting('accuracy')),
+        altitude: null,
+        altitudeAccuracy: null,
+        heading: null,
+        speed: null,
+      },
+      timestamp: Date.now(),
+    };
+  }
+
+  function buildMockPositionError(code) {
+    const messages = {
+      1: 'User denied Geolocation',
+      2: 'Position unavailable',
+      3: 'Geolocation request timed out',
+    };
+    return {
+      code,
+      message: messages[code] || 'Unknown geolocation error',
+      PERMISSION_DENIED: 1,
+      POSITION_UNAVAILABLE: 2,
+      TIMEOUT: 3,
+    };
+  }
+
+  function installGeolocationMock() {
+    if (!geolocation) return;
+
+    const native = Object.freeze({
+      getCurrentPosition: geolocation.getCurrentPosition.bind(geolocation),
+      watchPosition: geolocation.watchPosition.bind(geolocation),
+      clearWatch: geolocation.clearWatch.bind(geolocation),
+    });
+    const geolocationPrototype = pageWindow.Geolocation?.prototype
+      || Object.getPrototypeOf(geolocation);
+
+    function deliverPosition(success, error) {
+      const errorCode = Number(locationSetting('errorCode'));
+      pageWindow.setTimeout(() => {
+        if (errorCode) {
+          if (typeof error === 'function') error(buildMockPositionError(errorCode));
+        } else if (typeof success === 'function') {
+          success(buildMockPosition());
+        }
+      }, 0);
+    }
+
+    function getCurrentPosition(success, error, options) {
+      if (!isLocationMockEnabled()) return native.getCurrentPosition(success, error, options);
+      deliverPosition(success, error);
+    }
+
+    function watchPosition(success, error, options) {
+      if (!isLocationMockEnabled()) return native.watchPosition(success, error, options);
+      const watchId = nextMockWatchId;
+      nextMockWatchId -= 1;
+      deliverPosition(success, error);
+      const timer = pageWindow.setInterval(() => deliverPosition(success, error), 5_000);
+      mockWatches.set(watchId, timer);
+      return watchId;
+    }
+
+    function clearWatch(watchId) {
+      if (mockWatches.has(watchId)) {
+        pageWindow.clearInterval(mockWatches.get(watchId));
+        mockWatches.delete(watchId);
+        return;
+      }
+      native.clearWatch(watchId);
+    }
+
+    function installMethod(target, name, value) {
+      if (!target) return;
+      try {
+        Object.defineProperty(target, name, {
+          configurable: true,
+          writable: true,
+          value,
+        });
+      } catch {
+        try { target[name] = value; } catch { /* read-only host object */ }
+      }
+    }
+
+    for (const [name, value] of Object.entries({ getCurrentPosition, watchPosition, clearWatch })) {
+      installMethod(geolocationPrototype, name, value);
+      installMethod(geolocation, name, value);
+    }
+  }
+
+  installGeolocationMock();
 
   function normalizeText(value) {
     return String(value || '').replace(/\s+/g, ' ').trim();
@@ -398,6 +527,101 @@
     evaluateState();
   }
 
+  function updateLocationBadge() {
+    const existing = document.getElementById('pollev-location-mock-status');
+    if (!isLocationMockEnabled()) {
+      existing?.remove();
+      return;
+    }
+    if (!document.documentElement) return;
+
+    const badge = existing || document.createElement('div');
+    badge.id = 'pollev-location-mock-status';
+    badge.textContent = Number(locationSetting('errorCode'))
+      ? `Location mock: error ${locationSetting('errorCode')}`
+      : `Location mock: ${Number(locationSetting('latitude')).toFixed(4)}, ${Number(locationSetting('longitude')).toFixed(4)}`;
+    Object.assign(badge.style, {
+      position: 'fixed',
+      left: '12px',
+      bottom: '12px',
+      zIndex: '2147483647',
+      padding: '7px 10px',
+      borderRadius: '999px',
+      color: '#fff',
+      background: '#b83280',
+      font: '600 12px/1.2 -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
+      boxShadow: '0 2px 10px rgba(0, 0, 0, .25)',
+      pointerEvents: 'none',
+      opacity: '.92',
+    });
+    if (!existing) document.documentElement.appendChild(badge);
+  }
+
+  function toggleLocationMock() {
+    const enabled = !isLocationMockEnabled();
+    GM_setValue(STORAGE_KEYS.locationEnabled, enabled);
+    updateLocationBadge();
+    window.alert(`PollEv 定位模拟已${enabled ? '开启' : '关闭'}。${enabled ? '请刷新页面后再触发定位检查。' : ''}`);
+  }
+
+  function configureLocationMock() {
+    const latitude = window.prompt('Latitude（-90 到 90）', String(locationSetting('latitude')));
+    if (latitude === null) return;
+    const longitude = window.prompt('Longitude（-180 到 180）', String(locationSetting('longitude')));
+    if (longitude === null) return;
+    const accuracy = window.prompt('Accuracy（米，必须大于 0）', String(locationSetting('accuracy')));
+    if (accuracy === null) return;
+
+    const values = {
+      latitude: Number(latitude),
+      longitude: Number(longitude),
+      accuracy: Number(accuracy),
+    };
+    if (!Number.isFinite(values.latitude) || values.latitude < -90 || values.latitude > 90
+      || !Number.isFinite(values.longitude) || values.longitude < -180 || values.longitude > 180
+      || !Number.isFinite(values.accuracy) || values.accuracy <= 0) {
+      window.alert('坐标或精度格式不正确。');
+      return;
+    }
+
+    GM_setValue(STORAGE_KEYS.latitude, values.latitude);
+    GM_setValue(STORAGE_KEYS.longitude, values.longitude);
+    GM_setValue(STORAGE_KEYS.accuracy, values.accuracy);
+    GM_setValue(STORAGE_KEYS.locationErrorCode, 0);
+    updateLocationBadge();
+    window.alert('定位模拟坐标已保存。请刷新页面后再触发定位检查。');
+  }
+
+  function configureLocationError() {
+    const code = window.prompt(
+      '定位结果：0=成功，1=拒绝，2=不可用，3=超时',
+      String(locationSetting('errorCode')),
+    );
+    if (code === null) return;
+    const numericCode = Number(code);
+    if (![0, 1, 2, 3].includes(numericCode)) {
+      window.alert('请输入 0、1、2 或 3。');
+      return;
+    }
+    GM_setValue(STORAGE_KEYS.locationErrorCode, numericCode);
+    updateLocationBadge();
+  }
+
+  function testLocationMock() {
+    if (!geolocation) {
+      window.alert('当前浏览器没有提供 Geolocation API。');
+      return;
+    }
+    pageWindow.navigator.geolocation.getCurrentPosition(
+      (position) => window.alert([
+        `Latitude: ${position.coords.latitude}`,
+        `Longitude: ${position.coords.longitude}`,
+        `Accuracy: ${position.coords.accuracy} m`,
+      ].join('\n')),
+      (error) => window.alert(`Geolocation error ${error.code}: ${error.message}`),
+    );
+  }
+
   function clearTelegramConfig() {
     if (!window.confirm('确定要删除保存在 Tampermonkey 中的 Bot Token 和 Chat ID 吗？')) return;
     GM_deleteValue(STORAGE_KEYS.botToken);
@@ -408,17 +632,27 @@
   GM_registerMenuCommand('⚙️ 配置 Telegram', () => void configureTelegram());
   GM_registerMenuCommand('🧪 发送 Telegram 测试通知', () => void testTelegram());
   GM_registerMenuCommand('⏯️ 开启/暂停监听', toggleWatcher);
+  GM_registerMenuCommand('📍 开启/关闭定位模拟', toggleLocationMock);
+  GM_registerMenuCommand('🧭 配置定位模拟坐标', configureLocationMock);
+  GM_registerMenuCommand('⚠️ 配置定位错误模式', configureLocationError);
+  GM_registerMenuCommand('🧪 测试当前定位结果', testLocationMock);
   GM_registerMenuCommand('🗑️ 删除 Telegram 配置', clearTelegramConfig);
 
-  document.addEventListener('click', unlockAudio, { once: true, capture: true });
-  const observer = new MutationObserver(scheduleCheck);
-  observer.observe(document.documentElement, {
-    childList: true,
-    subtree: true,
-    characterData: true,
-  });
+  function startWatcher() {
+    document.addEventListener('click', unlockAudio, { once: true, capture: true });
+    const observer = new MutationObserver(scheduleCheck);
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
 
-  setBadge(STATES.unknown);
-  evaluateState();
-  window.setInterval(evaluateState, 15_000);
+    setBadge(STATES.unknown);
+    updateLocationBadge();
+    evaluateState();
+    window.setInterval(evaluateState, 15_000);
+  }
+
+  if (document.documentElement) startWatcher();
+  else document.addEventListener('readystatechange', startWatcher, { once: true });
 }());

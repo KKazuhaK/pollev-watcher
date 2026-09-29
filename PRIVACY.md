@@ -9,6 +9,8 @@ The following values are stored in Tampermonkey's per-script storage in the user
 - Telegram Bot Token
 - Telegram Chat ID
 - Whether monitoring is enabled or paused
+- Whether location testing is enabled
+- The configured test coordinates, accuracy, and simulated error mode
 
 These values are not included in the source repository.
 
@@ -23,7 +25,7 @@ The request contains:
 - A short notification message
 - The current Poll Everywhere page title and URL
 
-No project-operated server receives or stores this data. Telegram processes the request under its own terms and privacy policy.
+The location-testing settings remain in Tampermonkey storage and are not added to Telegram notifications. No project-operated server receives or stores this data. Telegram processes notification requests under its own terms and privacy policy.
 
 ## Poll Everywhere access
 
