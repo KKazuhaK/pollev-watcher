@@ -108,12 +108,12 @@
 
   function watcherToggleMenuLabel() {
     const enabled = Boolean(GM_getValue(STORAGE_KEYS.enabled, true));
-    return `⏯️ 监测 [${enabled ? '已开启' : '已关闭'}]（点击${enabled ? '关闭' : '开启'}）`;
+    return `⏯️ 监测 [${enabled ? '已开启' : '已关闭'}]`;
   }
 
   function locationToggleMenuLabel() {
     const enabled = isLocationMockEnabled();
-    return `📍 定位 [${enabled ? '已开启' : '已关闭'}]（点击${enabled ? '关闭' : '开启'}）`;
+    return `📍 定位 [${enabled ? '已开启' : '已关闭'}]`;
   }
 
   function toggleWatcherFromMenu() {

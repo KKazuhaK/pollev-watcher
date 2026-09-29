@@ -200,16 +200,16 @@ test('menu uses one settings panel instead of separate toggle commands', () => {
   const harness = createHarness();
   const labels = harness.menuLabels();
 
-  assert.equal(labels.some((label) => label.includes('监测 [已开启]（点击关闭）')), true);
-  assert.equal(labels.some((label) => label.includes('定位 [已关闭]（点击开启）')), true);
+  assert.equal(labels.some((label) => label === '⏯️ 监测 [已开启]'), true);
+  assert.equal(labels.some((label) => label === '📍 定位 [已关闭]'), true);
   assert.equal(labels.some((label) => label.includes('打开 Watcher 设置')), true);
   assert.equal(labels.some((label) => label.includes('设置模拟坐标')), false);
 
   harness.runMenu('监测 [已开启]');
   harness.runMenu('定位 [已关闭]');
   const updatedLabels = harness.menuLabels();
-  assert.equal(updatedLabels.some((label) => label.includes('监测 [已关闭]（点击开启）')), true);
-  assert.equal(updatedLabels.some((label) => label.includes('定位 [已开启]（点击关闭）')), true);
+  assert.equal(updatedLabels.some((label) => label === '⏯️ 监测 [已关闭]'), true);
+  assert.equal(updatedLabels.some((label) => label === '📍 定位 [已开启]'), true);
 });
 
 test('metadata loads Leaflet map resources', () => {
