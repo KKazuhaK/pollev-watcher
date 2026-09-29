@@ -15,7 +15,8 @@ function createHarness() {
   let localAlerts = 0;
   let questionTitle = '';
   let nativeLocationCalls = 0;
-  const menuLabels = [];
+  const menuEntries = new Map();
+  let nextMenuId = 1;
   const elements = new Map();
   const geolocation = {
     getCurrentPosition(success) {
@@ -70,7 +71,11 @@ function createHarness() {
     GM_getResourceText: () => '',
     GM_getValue: (key, fallback) => values.has(key) ? values.get(key) : fallback,
     GM_notification: () => { localAlerts += 1; },
-    GM_registerMenuCommand: (label) => { menuLabels.push(label); },
+    GM_registerMenuCommand: (label, callback, options) => {
+      const id = options?.id ?? nextMenuId++;
+      menuEntries.set(id, { label, callback });
+      return id;
+    },
     GM_setValue: (key, value) => values.set(key, value),
     GM_xmlhttpRequest: (options) => {
       telegramMessages += 1;
@@ -131,7 +136,12 @@ function createHarness() {
       geolocation.getCurrentPosition(callback);
     },
     nativeLocationCalls: () => nativeLocationCalls,
-    menuLabels: () => [...menuLabels],
+    menuLabels: () => [...menuEntries.values()].map((entry) => entry.label),
+    runMenu(labelPart) {
+      const entry = [...menuEntries.values()].find(({ label }) => label.includes(labelPart));
+      assert.ok(entry, `Missing menu command containing: ${labelPart}`);
+      entry.callback();
+    },
   };
 }
 
@@ -187,11 +197,19 @@ test('location mocking returns configured coordinates when enabled', () => {
 });
 
 test('menu uses one settings panel instead of separate toggle commands', () => {
-  const labels = createHarness().menuLabels();
+  const harness = createHarness();
+  const labels = harness.menuLabels();
 
-  assert.equal(labels.some((label) => label.includes('[检测已开启] [定位已关闭]')), true);
-  assert.equal(labels.some((label) => label.includes('开启/关闭定位')), false);
+  assert.equal(labels.some((label) => label.includes('监测 [已开启]（点击关闭）')), true);
+  assert.equal(labels.some((label) => label.includes('定位 [已关闭]（点击开启）')), true);
+  assert.equal(labels.some((label) => label.includes('打开 Watcher 设置')), true);
   assert.equal(labels.some((label) => label.includes('设置模拟坐标')), false);
+
+  harness.runMenu('监测 [已开启]');
+  harness.runMenu('定位 [已关闭]');
+  const updatedLabels = harness.menuLabels();
+  assert.equal(updatedLabels.some((label) => label.includes('监测 [已关闭]（点击开启）')), true);
+  assert.equal(updatedLabels.some((label) => label.includes('定位 [已开启]（点击关闭）')), true);
 });
 
 test('metadata loads Leaflet map resources', () => {

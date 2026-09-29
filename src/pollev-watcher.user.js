@@ -83,6 +83,8 @@
   let notificationSent = false;
   let lastActivityFingerprint = '';
   let audioContext = null;
+  let watcherToggleMenuId = null;
+  let locationToggleMenuId = null;
   let settingsMenuId = null;
   let leafletCssAdded = false;
 
@@ -104,15 +106,44 @@
     return Boolean(locationSetting('enabled'));
   }
 
-  function settingsMenuLabel() {
-    const watcher = GM_getValue(STORAGE_KEYS.enabled, true) ? '已开启' : '已关闭';
-    const locationMock = isLocationMockEnabled() ? '已开启' : '已关闭';
-    return `🎛️ Watcher 设置 [检测${watcher}] [定位${locationMock}]`;
+  function watcherToggleMenuLabel() {
+    const enabled = Boolean(GM_getValue(STORAGE_KEYS.enabled, true));
+    return `⏯️ 监测 [${enabled ? '已开启' : '已关闭'}]（点击${enabled ? '关闭' : '开启'}）`;
   }
 
-  function refreshSettingsMenu() {
-    const options = settingsMenuId === null ? undefined : { id: settingsMenuId };
-    settingsMenuId = GM_registerMenuCommand(settingsMenuLabel(), openSettingsPanel, options);
+  function locationToggleMenuLabel() {
+    const enabled = isLocationMockEnabled();
+    return `📍 定位 [${enabled ? '已开启' : '已关闭'}]（点击${enabled ? '关闭' : '开启'}）`;
+  }
+
+  function toggleWatcherFromMenu() {
+    GM_setValue(STORAGE_KEYS.enabled, !GM_getValue(STORAGE_KEYS.enabled, true));
+    evaluateState();
+    refreshControlMenus();
+  }
+
+  function toggleLocationFromMenu() {
+    GM_setValue(STORAGE_KEYS.locationEnabled, !isLocationMockEnabled());
+    updateLocationBadge();
+    refreshControlMenus();
+  }
+
+  function refreshControlMenus() {
+    watcherToggleMenuId = GM_registerMenuCommand(
+      watcherToggleMenuLabel(),
+      toggleWatcherFromMenu,
+      watcherToggleMenuId === null ? undefined : { id: watcherToggleMenuId },
+    );
+    locationToggleMenuId = GM_registerMenuCommand(
+      locationToggleMenuLabel(),
+      toggleLocationFromMenu,
+      locationToggleMenuId === null ? undefined : { id: locationToggleMenuId },
+    );
+    settingsMenuId = GM_registerMenuCommand(
+      '🎛️ 打开 Watcher 设置',
+      openSettingsPanel,
+      settingsMenuId === null ? undefined : { id: settingsMenuId },
+    );
   }
 
   function buildMockPosition() {
@@ -736,13 +767,13 @@
     watchToggle.addEventListener('change', () => {
       GM_setValue(STORAGE_KEYS.enabled, watchToggle.checked);
       evaluateState();
-      refreshSettingsMenu();
+      refreshControlMenus();
       status.textContent = `活动提醒已${watchToggle.checked ? '开启' : '暂停'}。`;
     });
     locationToggle.addEventListener('change', () => {
       GM_setValue(STORAGE_KEYS.locationEnabled, locationToggle.checked);
       updateLocationBadge();
-      refreshSettingsMenu();
+      refreshControlMenus();
       status.textContent = `定位模拟已${locationToggle.checked ? '开启' : '关闭'}。请刷新页面后重新检查定位。`;
     });
     overlay.querySelector('#pw-save-location').addEventListener('click', () => {
@@ -779,7 +810,7 @@
 
   GM_registerMenuCommand('⚙️ 配置 Telegram', () => void configureTelegram());
   GM_registerMenuCommand('🧪 发送 Telegram 测试通知', () => void testTelegram());
-  refreshSettingsMenu();
+  refreshControlMenus();
   GM_registerMenuCommand('🗑️ 删除 Telegram 配置', clearTelegramConfig);
 
   function startWatcher() {

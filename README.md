@@ -4,7 +4,7 @@ PollEv Watcher is a small Tampermonkey userscript that watches a Poll Everywhere
 
 It also shows a local desktop notification, plays a short sound when the browser permits it, and flashes the tab title.
 
-An optional location-testing mode can override the browser Geolocation API on supported Poll Everywhere pages. It is disabled by default, configured from a compact settings panel with visual switches and an interactive map, and shows a visible badge whenever it is active. The Tampermonkey menu label displays the current monitoring and location status.
+An optional location-testing mode can override the browser Geolocation API on supported Poll Everywhere pages. It is disabled by default, configured from a compact settings panel with visual switches and an interactive map, and shows a visible badge whenever it is active. The Tampermonkey menu provides status-labelled quick toggles for monitoring and location testing.
 
 PollEv Watcher is an independent project and is not affiliated with or endorsed by Poll Everywhere.
 
@@ -30,7 +30,7 @@ The watcher deliberately uses visible page state instead of private Poll Everywh
 The location-testing controls are part of PollEv Watcher; no second userscript or join-code allowlist is needed.
 
 1. Open any supported Poll Everywhere page.
-2. In the Tampermonkey menu, open the status-labelled **Watcher settings** item.
+2. In the Tampermonkey menu, open **Watcher settings**. The neighboring status-labelled commands provide one-click monitoring and location toggles for frequent use.
 3. Click the OpenStreetMap map or drag its marker to choose coordinates, then save them and turn on the **Location mocking** switch.
 4. Refresh the page before triggering a new location check.
 5. Use the panel's **Self-test** button to verify the coordinates returned to the page.
