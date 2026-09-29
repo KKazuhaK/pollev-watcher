@@ -2,7 +2,7 @@
 // @name         PollEv Watcher
 // @author       KKazuhaK
 // @namespace    https://github.com/pollev-watcher
-// @version      0.2.2
+// @version      0.3.0
 // @description  Notify Telegram when a Poll Everywhere activity becomes active.
 // @license      MIT
 // @homepageURL  https://github.com/KKazuhaK/pollev-watcher
@@ -63,6 +63,7 @@
   let waitingDisappearedAt = 0;
   let checkTimer = null;
   let notificationSent = false;
+  let lastActivityFingerprint = '';
   let audioContext = null;
 
   function normalizeText(value) {
@@ -99,6 +100,20 @@
     }
 
     return STATES.unknown;
+  }
+
+  function activityFingerprint() {
+    const heading = document.querySelector([
+      'main h1',
+      'main h2',
+      '[role="main"] h1',
+      '[role="main"] h2',
+      '[data-testid*="question"]',
+      '[class*="question"] h1',
+      '[class*="question"] h2',
+    ].join(','));
+    const headingText = normalizeText(heading?.innerText || heading?.textContent);
+    return headingText ? `${location.pathname}|${headingText}` : '';
   }
 
   function setBadge(nextState, detail = '') {
@@ -244,18 +259,21 @@
     return chats.find((chat) => chat.type === 'private') || chats[0] || null;
   }
 
-  async function notifyActivityActive() {
-    if (notificationSent) return;
+  async function notifyActivityActive(isNextQuestion = false) {
+    if (notificationSent && !isNextQuestion) return;
     notificationSent = true;
 
     const message = [
-      '🔔 Poll Everywhere 已开启',
+      isNextQuestion ? '🔔 Poll Everywhere 新题已开启' : '🔔 Poll Everywhere 已开启',
       document.title ? `页面：${document.title}` : '',
       `链接：${location.href}`,
     ].filter(Boolean).join('\n');
 
     setBadge(STATES.active);
-    localNotification('Poll Everywhere 已开启', '活动现在可以作答了。');
+    localNotification(
+      isNextQuestion ? 'Poll Everywhere 新题已开启' : 'Poll Everywhere 已开启',
+      '活动现在可以作答了。',
+    );
     playAlertSound();
     flashTitle();
 
@@ -282,6 +300,7 @@
       waitingWasObserved = true;
       waitingDisappearedAt = 0;
       notificationSent = false;
+      lastActivityFingerprint = '';
       setBadge(state);
       return;
     }
@@ -293,7 +312,19 @@
         return;
       }
       state = STATES.active;
+      lastActivityFingerprint = activityFingerprint();
       void notifyActivityActive();
+      return;
+    }
+
+    if (state === STATES.active && detected === STATES.active) {
+      const fingerprint = activityFingerprint();
+      if (fingerprint && lastActivityFingerprint && fingerprint !== lastActivityFingerprint) {
+        lastActivityFingerprint = fingerprint;
+        void notifyActivityActive(true);
+      } else if (fingerprint && !lastActivityFingerprint) {
+        lastActivityFingerprint = fingerprint;
+      }
       return;
     }
 

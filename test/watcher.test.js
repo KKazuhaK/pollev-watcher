@@ -13,6 +13,7 @@ function createHarness() {
   let evaluateInterval;
   let telegramMessages = 0;
   let localAlerts = 0;
+  let questionTitle = '';
   const elements = new Map();
 
   const document = {
@@ -30,7 +31,10 @@ function createHarness() {
     getElementById(id) {
       return elements.get(id) || null;
     },
-    querySelector() {
+    querySelector(selector) {
+      if (selector.includes('main h1')) {
+        return questionTitle ? { innerText: questionTitle, textContent: questionTitle } : null;
+      }
       return document.body.innerText.includes('Question') ? {} : null;
     },
   };
@@ -83,9 +87,15 @@ function createHarness() {
 
   return {
     activate() {
+      questionTitle ||= 'Question one';
       document.body.innerText = 'Question: choose an answer';
       evaluateInterval();
       now += 2_000;
+      evaluateInterval();
+    },
+    nextQuestion(title) {
+      questionTitle = title;
+      document.body.innerText = `Question: ${title}`;
       evaluateInterval();
     },
     wait() {
@@ -111,6 +121,18 @@ test('each waiting-to-active transition sends one notification', async () => {
 
   harness.wait();
   harness.activate();
+  assert.equal(harness.counts().telegramMessages, 2);
+  assert.equal(harness.counts().localAlerts, 2);
+});
+
+test('a changed question heading sends one additional notification', () => {
+  const harness = createHarness();
+
+  harness.wait();
+  harness.activate();
+  harness.nextQuestion('Question two');
+  harness.nextQuestion('Question two');
+
   assert.equal(harness.counts().telegramMessages, 2);
   assert.equal(harness.counts().localAlerts, 2);
 });

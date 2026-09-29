@@ -52,6 +52,8 @@ The Bot Token and Chat ID are stored in Tampermonkey's script storage. They are 
 
 The script first waits until it sees Poll Everywhere's waiting message. It then watches page changes with a `MutationObserver`. When the waiting screen disappears for long enough, the script treats the activity as active and sends one notification. If the page returns to waiting, the notification latch resets so the next activation sends another notification.
 
+While an activity remains active, the watcher also fingerprints the visible question heading. A changed heading triggers one new-question notification, while response counts and result animations do not.
+
 This transition requirement prevents a notification merely because an unrelated Poll Everywhere page was opened.
 
 ## Limitations
