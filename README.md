@@ -8,6 +8,12 @@ An optional location-testing mode can override the browser Geolocation API on su
 
 PollEv Watcher is an independent project and is not affiliated with or endorsed by Poll Everywhere.
 
+## Language / 语言
+
+The interface, Tampermonkey menus, status messages, and notifications support Chinese and English. The default follows the browser's preferred language (Chinese for `zh`, English otherwise). Override it in **Watcher settings → Overview → Interface and notification language**; the choice is saved locally and takes effect immediately. Switching languages preserves unsaved form values. Saved place names and search results retain their original text.
+
+界面、Tampermonkey 菜单、状态提示和通知支持中文与英文，默认跟随浏览器语言。可以在 **Watcher 设置 → 概览 → 界面和通知语言** 手动选择，立即生效并保存在本地。切换语言不会丢失表单草稿，也不会修改已收藏的地点名称。
+
 ## One-click install
 
 1. Install [Tampermonkey](https://www.tampermonkey.net/).

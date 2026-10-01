@@ -12,6 +12,7 @@ function createSearchHarness() {
   let aborted = 0;
   const requests = [];
   const context = {
+    t: (message) => message,
     Date: { now: () => now },
     GM_xmlhttpRequest(options) {
       requests.push(options);

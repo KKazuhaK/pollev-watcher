@@ -2,7 +2,7 @@
 // @name         PollEv Watcher
 // @author       KKazuhaK
 // @namespace    https://github.com/pollev-watcher
-// @version      0.7.0
+// @version      0.8.0
 // @description  Notify Telegram when a Poll Everywhere activity becomes active.
 // @license      MIT
 // @homepageURL  https://github.com/KKazuhaK/pollev-watcher
@@ -54,6 +54,171 @@
     errorCode: 0,
   });
 
+  const LANGUAGE_KEY = 'interfaceLanguage';
+  const EN_MESSAGES = Object.freeze({
+    "已开启": "On",
+    "已关闭": "Off",
+    "未配置": "Not configured",
+    "已配置": "Configured",
+    "监测": "Monitoring",
+    "定位": "Location",
+    "通知": "Notifications",
+    "开启": "enabled",
+    "关闭": "disabled",
+    "关闭窗口": "Close",
+    "暂停": "paused",
+    "🎛️ 打开 Watcher 设置": "🎛️ Open Watcher settings",
+    "控制中心": "Control center",
+    "设置分类": "Settings sections",
+    "概览": "Overview",
+    "收藏地点": "Saved places",
+    "快速控制": "Quick controls",
+    "常用功能可以在这里或 Tampermonkey 菜单中切换。": "Use these controls here or in the Tampermonkey menu.",
+    "配置保存在 Tampermonkey 本地存储中": "Settings are stored locally in Tampermonkey",
+    "Poll 状态监测": "Poll monitoring",
+    "检测等待、开启和题目切换": "Detect waiting, activation, and question changes",
+    "发送通知": "Send notifications",
+    "Telegram、桌面通知、声音和标题闪烁": "Telegram, desktop alerts, sound, and tab flashing",
+    "定位模拟": "Location simulation",
+    "仅作用于 Poll Everywhere 页面": "Only applies to Poll Everywhere pages",
+    "通知设置": "Notification settings",
+    "Bot Token 和 Chat ID 仅保存在 Tampermonkey 中。": "Bot Token and Chat ID are stored only in Tampermonkey.",
+    "关闭后仍继续监测，但不会发送任何提醒": "Monitoring continues when off, but no alerts are sent",
+    "发送 /start 后可自动检测": "Send /start to enable auto-detection",
+    "保存配置": "Save configuration",
+    "自动检测 Chat ID": "Detect Chat ID",
+    "发送测试通知": "Send test notification",
+    "删除配置": "Delete configuration",
+    "点击地图或拖动标记选择位置；保存后刷新页面生效。": "Click the map or drag the marker; save and refresh the page to apply.",
+    "启用定位模拟": "Enable location simulation",
+    "未保存有效坐标前不可开启": "Save valid coordinates before enabling",
+    "地图选点": "Choose a location",
+    "搜索地点或地址": "Search for a place or address",
+    "搜索": "Search",
+    "搜索中…": "Searching…",
+    "地点搜索结果": "Place search results",
+    "点击搜索才会将搜索词发送给 ": "Pressing Search sends your query to ",
+    "；请勿输入敏感信息。数据 © ": "; do not enter sensitive information. Data © ",
+    "定位结果": "Location result",
+    "成功": "Success",
+    "权限被拒绝": "Permission denied",
+    "位置不可用": "Position unavailable",
+    "请求超时": "Request timed out",
+    "保存定位设置": "Save location settings",
+    "运行自检": "Run self-test",
+    "收藏后会出现在 Tampermonkey 菜单中，可一键切换并开启定位。": "Saved places appear in the Tampermonkey menu for one-click switching and enabling.",
+    "地点名称": "Place name",
+    "收藏当前坐标": "Save current coordinates",
+    "偏好设置自动保存；坐标修改需点击保存。": "Preferences are saved in this browser; coordinate changes require Save.",
+    "尚未配置 Telegram；请前往“通知”设置": "Telegram is not configured; open Notifications",
+    "尚未保存定位设置": "No location settings saved",
+    "已保存；留空保持不变": "Saved; leave blank to keep unchanged",
+    "从 @BotFather 复制完整 Token": "Copy the full token from @BotFather",
+    "地图组件加载失败，仍可手动输入坐标。": "The map failed to load. You can still enter coordinates manually.",
+    "拖动选择位置": "Drag to choose a location",
+    "地图位置已选择；保存后生效。": "Map location selected; save to apply.",
+    "标记位置已更新；保存后生效。": "Marker updated; save to apply.",
+    "正在搜索地点…": "Searching for places…",
+    "选择一个结果，或继续在地图上调整；保存后生效。": "Choose a result or adjust the map; save to apply.",
+    "没有找到地点，请补充城市或尝试其他名称，也可以直接在地图选点。": "No places found. Add a city, try another name, or click the map.",
+    "未命名地点": "Unnamed place",
+    "搜索服务返回了无效数据，请稍后重试。": "The search service returned invalid data. Please try again later.",
+    "请输入至少两个字符的地点名称或地址。": "Enter at least two characters of a place name or address.",
+    "搜索内容过长，请缩短后重试。": "The query is too long. Please shorten it.",
+    "正在搜索，请等待当前搜索完成。": "A search is in progress. Please wait.",
+    "搜索过于频繁，请稍等再试。": "Please wait a moment before searching again.",
+    "搜索已取消。": "Search cancelled.",
+    "搜索服务暂时限流，请稍后重试。": "The search service is rate-limiting requests. Please try later.",
+    "搜索服务暂不可用，请稍后重试或手动选点。": "The search service is unavailable. Try later or select a point manually.",
+    "无法连接搜索服务，请检查网络或 Tampermonkey 的域名访问权限。": "Cannot connect to search. Check your network or Tampermonkey domain permissions.",
+    "搜索超时，请重试或手动选点。": "Search timed out. Try again or select a point manually.",
+    "无法发起搜索，请检查 Tampermonkey 的域名访问权限。": "Cannot start search. Check Tampermonkey domain permissions.",
+    "已选择“{name}”；请保存定位设置后生效。": "Selected “{name}”; save location settings to apply.",
+    "已选择：{name}。可以拖动标记微调。": "Selected: {name}. Drag the marker to fine-tune.",
+    "状态监测已{state}。": "Monitoring {state}.",
+    "通知已{state}。": "Notifications {state}.",
+    "定位模拟已{state}。请刷新页面后重新检查定位。": "Location simulation {state}. Refresh the page before checking location again.",
+    "Token 格式不正确，请从 @BotFather 复制完整 Token。": "Invalid token format. Copy the full token from @BotFather.",
+    "Chat ID 应为一串数字；可先给机器人发送 /start，再自动检测。": "Chat ID must be numeric. Send /start to the bot, then use auto-detection.",
+    "Telegram 配置已保存。": "Telegram configuration saved.",
+    "请先输入有效的 Bot Token。": "Enter a valid Bot Token first.",
+    "正在检测最近的 Telegram 对话…": "Detecting recent Telegram chats…",
+    "没有检测到对话。请先给机器人发送 /start，然后重试。": "No chats found. Send /start to the bot, then try again.",
+    "已检测到 Chat ID{name}；请点击“保存配置”。": "Detected Chat ID{name}; click Save configuration.",
+    "检测失败：{error}": "Detection failed: {error}",
+    "请先保存 Telegram 配置。": "Save your Telegram configuration first.",
+    "正在发送测试通知…": "Sending test notification…",
+    "✅ PollEv Watcher 测试成功": "✅ PollEv Watcher test successful",
+    "Telegram 测试通知已发送。": "Telegram test notification sent.",
+    "发送失败：{error}": "Send failed: {error}",
+    "确定删除保存在 Tampermonkey 中的 Bot Token 和 Chat ID 吗？": "Delete the Bot Token and Chat ID stored in Tampermonkey?",
+    "Telegram 配置已删除。": "Telegram configuration deleted.",
+    "坐标、精度或错误模式格式不正确。": "Invalid coordinates, accuracy, or error mode.",
+    "定位设置已保存。现在可以开启定位模拟；开启后请刷新页面。": "Location settings saved. You can enable simulation now; refresh the page after enabling.",
+    "还没有收藏地点。请先在“定位”中选好坐标，再返回这里收藏。": "No saved places yet. Choose coordinates in Location, then return here to save them.",
+    "使用": "Use",
+    "删除": "Delete",
+    "已切换到“{name}”并开启定位；请刷新页面。": "Switched to “{name}” and enabled location simulation; refresh the page.",
+    "删除收藏地点“{name}”吗？": "Delete saved place “{name}”?",
+    "已删除“{name}”。": "Deleted “{name}”.",
+    "请先输入收藏地点名称。": "Enter a place name first.",
+    "当前坐标或精度格式不正确，无法收藏。": "Cannot save: invalid coordinates or accuracy.",
+    "已更新收藏地点“{name}”。": "Updated saved place “{name}”.",
+    "已收藏“{name}”。": "Saved “{name}”.",
+    "🔔 Poll Everywhere 新题已开启": "🔔 A new Poll Everywhere question is active",
+    "🔔 Poll Everywhere 已开启": "🔔 Poll Everywhere is active",
+    "Poll Everywhere 新题已开启": "A new Poll Everywhere question is active",
+    "Poll Everywhere 已开启": "Poll Everywhere is active",
+    "活动现在可以作答了。": "The activity is now open for responses.",
+    "Telegram 通知发送失败": "Telegram notification failed",
+    "页面：{title}": "Page: {title}",
+    "链接：{url}": "Link: {url}",
+    "当前浏览器没有提供 Geolocation API。": "This browser does not provide the Geolocation API.",
+    "纬度": "Latitude",
+    "经度": "Longitude",
+    "精度（米）": "Accuracy (m)",
+    "定位错误 {code}：{error}": "Geolocation error {code}: {error}",
+    "定位模拟：错误 {code}": "Location simulation: error {code}",
+    "定位模拟：{latitude}, {longitude}": "Location simulation: {latitude}, {longitude}",
+    "PollEv Watcher：等待开启": "PollEv Watcher: waiting",
+    "PollEv Watcher：活动开启": "PollEv Watcher: active",
+    "PollEv Watcher：监测中": "PollEv Watcher: watching",
+    "PollEv Watcher：监测已暂停": "PollEv Watcher: paused",
+    "PollEv Watcher：Telegram 发送失败": "PollEv Watcher: Telegram failed",
+    "🔔 活动已开启！": "🔔 Poll is active!",
+    "未配置 Telegram Bot Token。": "Telegram Bot Token is not configured.",
+    "未配置 Telegram Chat ID。": "Telegram Chat ID is not configured.",
+    "Telegram 请求超时。": "Telegram request timed out.",
+    "无法连接 Telegram。": "Could not connect to Telegram.",
+    "Telegram 返回 HTTP {status}。": "Telegram returned HTTP {status}.",
+    "语言": "Language",
+    "跟随浏览器": "Follow browser",
+    "界面和通知语言": "Interface and notification language",
+    "放大": "Zoom in",
+    "缩小": "Zoom out",
+    "用户拒绝定位权限": "User denied Geolocation",
+    "定位不可用": "Position unavailable",
+    "定位请求超时": "Geolocation request timed out",
+    "未知定位错误": "Unknown geolocation error"
+  });
+
+  function languagePreference() {
+    const preference = GM_getValue(LANGUAGE_KEY, 'auto');
+    return ['auto', 'zh', 'en'].includes(preference) ? preference : 'auto';
+  }
+
+  function currentLanguage() {
+    const preference = languagePreference();
+    if (preference !== 'auto') return preference;
+    const language = window.navigator?.languages?.[0] || window.navigator?.language || 'zh';
+    return language.toLowerCase().startsWith('zh') ? 'zh' : 'en';
+  }
+
+  function t(message, parameters = {}) {
+    const translated = currentLanguage() === 'en' ? (EN_MESSAGES[message] || message) : message;
+    return translated.replace(/\{(\w+)\}/g, (match, key) => String(parameters[key] ?? match));
+  }
+
   const STATES = Object.freeze({
     unknown: 'unknown',
     waiting: 'waiting',
@@ -97,7 +262,7 @@
   const placeSearch = createPlaceSearchClient();
 
   function normalizePlaceResults(data) {
-    if (!Array.isArray(data?.features)) throw new Error('搜索服务返回了无效数据，请稍后重试。');
+    if (!Array.isArray(data?.features)) throw new Error(t('搜索服务返回了无效数据，请稍后重试。'));
     return data.features.flatMap((feature) => {
       const coordinates = feature?.geometry?.coordinates;
       if (feature?.geometry?.type !== 'Point' || !Array.isArray(coordinates)) return [];
@@ -109,7 +274,7 @@
         [properties.housenumber, properties.street].filter(Boolean).join(' '),
         properties.city, properties.state, properties.country,
       ].filter((part) => typeof part === 'string' && part.trim()))].join(', ');
-      return [{ latitude, longitude, name: String(properties.name || properties.street || properties.city || '未命名地点'), address }];
+      return [{ latitude, longitude, name: String(properties.name || properties.street || properties.city || t('未命名地点')), address }];
     }).slice(0, 5);
   }
 
@@ -120,12 +285,12 @@
     return {
       search(value) {
         const query = value.trim().replace(/\s+/g, ' ');
-        if (query.length < 2) return Promise.reject(new Error('请输入至少两个字符的地点名称或地址。'));
-        if (query.length > 200) return Promise.reject(new Error('搜索内容过长，请缩短后重试。'));
+        if (query.length < 2) return Promise.reject(new Error(t('请输入至少两个字符的地点名称或地址。')));
+        if (query.length > 200) return Promise.reject(new Error(t('搜索内容过长，请缩短后重试。')));
         const key = query.toLowerCase();
         if (cache.has(key)) return Promise.resolve(cache.get(key));
-        if (pending) return Promise.reject(new Error('正在搜索，请等待当前搜索完成。'));
-        if (Date.now() - lastRequestAt < 1200) return Promise.reject(new Error('搜索过于频繁，请稍等再试。'));
+        if (pending) return Promise.reject(new Error(t('正在搜索，请等待当前搜索完成。')));
+        if (Date.now() - lastRequestAt < 1200) return Promise.reject(new Error(t('搜索过于频繁，请稍等再试。')));
         lastRequestAt = Date.now();
         return new Promise((resolve, reject) => {
           const operation = { request: null, cancel: null };
@@ -141,7 +306,7 @@
             }
           };
           operation.cancel = () => {
-            finish(new Error('搜索已取消。'));
+            finish(new Error(t('搜索已取消。')));
             operation.request?.abort();
           };
           try {
@@ -153,21 +318,21 @@
               timeout: 15_000,
               onload: (response) => {
                 if (response.status === 429) {
-                  finish(new Error('搜索服务暂时限流，请稍后重试。'));
+                  finish(new Error(t('搜索服务暂时限流，请稍后重试。')));
                   return;
                 }
                 if (response.status < 200 || response.status >= 300) {
-                  finish(new Error('搜索服务暂不可用，请稍后重试或手动选点。'));
+                  finish(new Error(t('搜索服务暂不可用，请稍后重试或手动选点。')));
                   return;
                 }
                 try { finish(null, normalizePlaceResults(JSON.parse(response.responseText))); }
-                catch { finish(new Error('搜索服务返回了无效数据，请稍后重试。')); }
+                catch { finish(new Error(t('搜索服务返回了无效数据，请稍后重试。'))); }
               },
-              onerror: () => finish(new Error('无法连接搜索服务，请检查网络或 Tampermonkey 的域名访问权限。')),
-              ontimeout: () => finish(new Error('搜索超时，请重试或手动选点。')),
-              onabort: () => finish(new Error('搜索已取消。')),
+              onerror: () => finish(new Error(t('无法连接搜索服务，请检查网络或 Tampermonkey 的域名访问权限。'))),
+              ontimeout: () => finish(new Error(t('搜索超时，请重试或手动选点。'))),
+              onabort: () => finish(new Error(t('搜索已取消。'))),
             });
-          } catch { finish(new Error('无法发起搜索，请检查 Tampermonkey 的域名访问权限。')); }
+          } catch { finish(new Error(t('无法发起搜索，请检查 Tampermonkey 的域名访问权限。'))); }
         });
       },
       cancel() { pending?.cancel(); },
@@ -242,19 +407,19 @@
 
   function watcherToggleMenuLabel() {
     const enabled = Boolean(GM_getValue(STORAGE_KEYS.enabled, true));
-    return `⏯️ 监测 [${enabled ? '已开启' : '已关闭'}]`;
+    return `⏯️ ${t('监测')} [${enabled ? t('已开启') : t('已关闭')}]`;
   }
 
   function locationToggleMenuLabel() {
-    if (!isLocationConfigured()) return '📍 定位 [未配置]';
+    if (!isLocationConfigured()) return `📍 ${t('定位')} [${t('未配置')}]`;
     const enabled = isLocationMockEnabled();
-    return `📍 定位 [${enabled ? '已开启' : '已关闭'}]`;
+    return `📍 ${t('定位')} [${enabled ? t('已开启') : t('已关闭')}]`;
   }
 
   function notificationToggleMenuLabel() {
-    if (!isTelegramConfigured()) return '🔔 通知 [未配置]';
+    if (!isTelegramConfigured()) return `🔔 ${t('通知')} [${t('未配置')}]`;
     const enabled = Boolean(GM_getValue(STORAGE_KEYS.notificationsEnabled, true));
-    return `🔔 通知 [${enabled ? '已开启' : '已关闭'}]`;
+    return `🔔 ${t('通知')} [${enabled ? t('已开启') : t('已关闭')}]`;
   }
 
   function toggleWatcherFromMenu() {
@@ -302,7 +467,7 @@
       locationToggleMenuId === null ? undefined : { id: locationToggleMenuId },
     );
     settingsMenuId = GM_registerMenuCommand(
-      '🎛️ 打开 Watcher 设置',
+      t('🎛️ 打开 Watcher 设置'),
       openSettingsPanel,
       settingsMenuId === null ? undefined : { id: settingsMenuId },
     );
@@ -330,13 +495,13 @@
 
   function buildMockPositionError(code) {
     const messages = {
-      1: 'User denied Geolocation',
-      2: 'Position unavailable',
-      3: 'Geolocation request timed out',
+      1: t('用户拒绝定位权限'),
+      2: t('定位不可用'),
+      3: t('定位请求超时'),
     };
     return {
       code,
-      message: messages[code] || 'Unknown geolocation error',
+      message: messages[code] || t('未知定位错误'),
       PERMISSION_DENIED: 1,
       POSITION_UNAVAILABLE: 2,
       TIMEOUT: 3,
@@ -482,9 +647,9 @@
     }
 
     const labels = {
-      [STATES.waiting]: 'PollEv Watcher: waiting',
-      [STATES.active]: 'PollEv Watcher: active',
-      [STATES.unknown]: 'PollEv Watcher: watching',
+      [STATES.waiting]: t('PollEv Watcher：等待开启'),
+      [STATES.active]: t('PollEv Watcher：活动开启'),
+      [STATES.unknown]: t('PollEv Watcher：监测中'),
     };
     const colors = {
       [STATES.waiting]: '#805ad5',
@@ -528,7 +693,7 @@
     const originalTitle = document.title;
     let showAlert = true;
     const timer = window.setInterval(() => {
-      document.title = showAlert ? '🔔 Poll is active!' : originalTitle;
+      document.title = showAlert ? t('🔔 活动已开启！') : originalTitle;
       showAlert = !showAlert;
     }, TITLE_FLASH_INTERVAL_MS);
 
@@ -549,7 +714,7 @@
 
   function telegramRequest(method, payload, tokenOverride = '') {
     const token = String(tokenOverride || GM_getValue(STORAGE_KEYS.botToken, '')).trim();
-    if (!token) return Promise.reject(new Error('Telegram Bot Token is not configured.'));
+    if (!token) return Promise.reject(new Error(t('未配置 Telegram Bot Token。')));
 
     return new Promise((resolve, reject) => {
       GM_xmlhttpRequest({
@@ -563,25 +728,25 @@
           try {
             result = JSON.parse(response.responseText);
           } catch {
-            reject(new Error(`Telegram returned HTTP ${response.status}.`));
+            reject(new Error(t('Telegram 返回 HTTP {status}。', { status: response.status })));
             return;
           }
 
           if (response.status >= 200 && response.status < 300 && result.ok) {
             resolve(result.result);
           } else {
-            reject(new Error(result.description || `Telegram returned HTTP ${response.status}.`));
+            reject(new Error(result.description || t('Telegram 返回 HTTP {status}。', { status: response.status })));
           }
         },
-        ontimeout: () => reject(new Error('Telegram request timed out.')),
-        onerror: () => reject(new Error('Could not connect to Telegram.')),
+        ontimeout: () => reject(new Error(t('Telegram 请求超时。'))),
+        onerror: () => reject(new Error(t('无法连接 Telegram。'))),
       });
     });
   }
 
   async function sendTelegramMessage(text) {
     const chatId = String(GM_getValue(STORAGE_KEYS.chatId, '')).trim();
-    if (!chatId) throw new Error('Telegram Chat ID is not configured.');
+    if (!chatId) throw new Error(t('未配置 Telegram Chat ID。'));
 
     return telegramRequest('sendMessage', {
       chat_id: chatId,
@@ -608,17 +773,17 @@
     notificationSent = true;
 
     const message = [
-      isNextQuestion ? '🔔 Poll Everywhere 新题已开启' : '🔔 Poll Everywhere 已开启',
-      document.title ? `页面：${document.title}` : '',
-      `链接：${location.href}`,
+      isNextQuestion ? t('🔔 Poll Everywhere 新题已开启') : t('🔔 Poll Everywhere 已开启'),
+      document.title ? t('页面：{title}', { title: document.title }) : '',
+      t('链接：{url}', { url: location.href }),
     ].filter(Boolean).join('\n');
 
     setBadge(STATES.active);
     if (!GM_getValue(STORAGE_KEYS.notificationsEnabled, true)) return;
 
     localNotification(
-      isNextQuestion ? 'Poll Everywhere 新题已开启' : 'Poll Everywhere 已开启',
-      '活动现在可以作答了。',
+      isNextQuestion ? t('Poll Everywhere 新题已开启') : t('Poll Everywhere 已开启'),
+      t('活动现在可以作答了。'),
     );
     playAlertSound();
     flashTitle();
@@ -627,14 +792,14 @@
       await sendTelegramMessage(message);
     } catch (error) {
       console.warn('[PollEv Watcher] Telegram notification failed:', error.message);
-      localNotification('Telegram 通知发送失败', error.message);
-      setBadge(STATES.active, 'PollEv Watcher: Telegram failed');
+      localNotification(t('Telegram 通知发送失败'), error.message);
+      setBadge(STATES.active, t('PollEv Watcher：Telegram 发送失败'));
     }
   }
 
   function evaluateState() {
     if (!GM_getValue(STORAGE_KEYS.enabled, true)) {
-      setBadge(STATES.unknown, 'PollEv Watcher: paused');
+      setBadge(STATES.unknown, t('PollEv Watcher：监测已暂停'));
       return;
     }
 
@@ -696,8 +861,8 @@
     const badge = existing || document.createElement('div');
     badge.id = 'pollev-location-mock-status';
     badge.textContent = Number(locationSetting('errorCode'))
-      ? `Location mock: error ${locationSetting('errorCode')}`
-      : `Location mock: ${Number(locationSetting('latitude')).toFixed(4)}, ${Number(locationSetting('longitude')).toFixed(4)}`;
+      ? t('定位模拟：错误 {code}', { code: locationSetting('errorCode') })
+      : t('定位模拟：{latitude}, {longitude}', { latitude: Number(locationSetting('latitude')).toFixed(4), longitude: Number(locationSetting('longitude')).toFixed(4) });
     Object.assign(badge.style, {
       position: 'fixed',
       left: '12px',
@@ -717,20 +882,20 @@
 
   function testLocationMock() {
     if (!geolocation) {
-      window.alert('当前浏览器没有提供 Geolocation API。');
+      window.alert(t('当前浏览器没有提供 Geolocation API。'));
       return;
     }
     pageWindow.navigator.geolocation.getCurrentPosition(
       (position) => window.alert([
-        `Latitude: ${position.coords.latitude}`,
-        `Longitude: ${position.coords.longitude}`,
-        `Accuracy: ${position.coords.accuracy} m`,
+        `${t('纬度')}: ${position.coords.latitude}`,
+        `${t('经度')}: ${position.coords.longitude}`,
+        `${t('精度（米）')}: ${position.coords.accuracy}`,
       ].join('\n')),
-      (error) => window.alert(`Geolocation error ${error.code}: ${error.message}`),
+      (error) => window.alert(t('定位错误 {code}：{error}', { code: error.code, error: error.message })),
     );
   }
 
-  function openSettingsPanel(initialSection = 'overview') {
+  function openSettingsPanel(initialSection = 'overview', draftValues = null) {
     document.getElementById('pollev-watcher-settings')?.remove();
 
     if (!leafletCssAdded) {
@@ -740,6 +905,7 @@
 
     const overlay = document.createElement('div');
     overlay.id = 'pollev-watcher-settings';
+    overlay.lang = currentLanguage() === 'zh' ? 'zh-CN' : 'en';
     overlay.innerHTML = `
       <style>
         #pollev-watcher-settings {
@@ -889,70 +1055,72 @@
       </style>
       <div class="pw-shell" role="dialog" aria-modal="true" aria-labelledby="pw-settings-title">
         <aside class="pw-sidebar">
-          <div class="pw-brand">PollEv Watcher<small>控制中心</small></div>
-          <nav class="pw-nav" aria-label="设置分类">
-            <button class="pw-nav-button" data-section="overview">⌂ 概览</button>
-            <button class="pw-nav-button" data-section="notifications">🔔 通知</button>
-            <button class="pw-nav-button" data-section="location">📍 定位</button>
-            <button class="pw-nav-button" data-section="favorites">★ 收藏地点</button>
+          <div class="pw-brand">PollEv Watcher<small>${t('控制中心')}</small></div>
+          <nav class="pw-nav" aria-label="${t('设置分类')}">
+            <button class="pw-nav-button" data-section="overview">⌂ ${t('概览')}</button>
+            <button class="pw-nav-button" data-section="notifications">🔔 ${t('通知')}</button>
+            <button class="pw-nav-button" data-section="location">📍 ${t('定位')}</button>
+            <button class="pw-nav-button" data-section="favorites">★ ${t('收藏地点')}</button>
           </nav>
-          <div class="pw-sidebar-note">配置保存在 Tampermonkey 本地存储中</div>
+          <div class="pw-sidebar-note">${t('配置保存在 Tampermonkey 本地存储中')}</div>
         </aside>
         <main class="pw-main">
-          <header class="pw-header"><h2 id="pw-settings-title">概览</h2><button class="pw-close" aria-label="关闭">×</button></header>
+          <header class="pw-header"><h2 id="pw-settings-title">${t('概览')}</h2><button class="pw-close" aria-label="${t('关闭窗口')}">×</button></header>
           <div class="pw-content">
             <section class="pw-panel" data-panel="overview">
-              <h3 class="pw-section-title">快速控制</h3><p class="pw-section-note">常用功能可以在这里或 Tampermonkey 菜单中切换。</p>
-              <div class="pw-card pw-row"><div><div class="pw-label">Poll 状态监测</div><div class="pw-note">检测等待、开启和题目切换</div></div><label class="pw-switch"><input id="pw-watch-toggle" type="checkbox"><span class="pw-slider"></span></label></div>
-              <div class="pw-card pw-row"><div><div class="pw-label">发送通知</div><div class="pw-note" id="pw-notification-summary">Telegram、桌面通知、声音和标题闪烁</div></div><label class="pw-switch"><input class="pw-notification-toggle" type="checkbox"><span class="pw-slider"></span></label></div>
-              <div class="pw-card pw-row"><div><div class="pw-label">定位模拟</div><div class="pw-note" id="pw-location-summary">仅作用于 Poll Everywhere 页面</div></div><label class="pw-switch"><input class="pw-location-toggle" type="checkbox"><span class="pw-slider"></span></label></div>
+              <h3 class="pw-section-title">${t('快速控制')}</h3><p class="pw-section-note">${t('常用功能可以在这里或 Tampermonkey 菜单中切换。')}</p>
+              <div class="pw-card pw-field"><label for="pw-language">${t('界面和通知语言')}</label><select id="pw-language"><option value="auto">${t('跟随浏览器')}</option><option value="zh">简体中文</option><option value="en">English</option></select></div>
+              <div class="pw-card pw-row"><div><div class="pw-label">${t('Poll 状态监测')}</div><div class="pw-note">${t('检测等待、开启和题目切换')}</div></div><label class="pw-switch"><input id="pw-watch-toggle" type="checkbox"><span class="pw-slider"></span></label></div>
+              <div class="pw-card pw-row"><div><div class="pw-label">${t('发送通知')}</div><div class="pw-note" id="pw-notification-summary">${t('Telegram、桌面通知、声音和标题闪烁')}</div></div><label class="pw-switch"><input class="pw-notification-toggle" type="checkbox"><span class="pw-slider"></span></label></div>
+              <div class="pw-card pw-row"><div><div class="pw-label">${t('定位模拟')}</div><div class="pw-note" id="pw-location-summary">${t('仅作用于 Poll Everywhere 页面')}</div></div><label class="pw-switch"><input class="pw-location-toggle" type="checkbox"><span class="pw-slider"></span></label></div>
             </section>
             <section class="pw-panel" data-panel="notifications">
-              <div class="pw-row"><div><h3 class="pw-section-title">通知设置</h3><p class="pw-section-note">Bot Token 和 Chat ID 仅保存在 Tampermonkey 中。</p></div><span class="pw-badge" id="pw-telegram-badge"></span></div>
+              <div class="pw-row"><div><h3 class="pw-section-title">${t('通知设置')}</h3><p class="pw-section-note">${t('Bot Token 和 Chat ID 仅保存在 Tampermonkey 中。')}</p></div><span class="pw-badge" id="pw-telegram-badge"></span></div>
               <div class="pw-card">
-                <div class="pw-row"><div><div class="pw-label">发送通知</div><div class="pw-note">关闭后仍继续监测，但不会发送任何提醒</div></div><label class="pw-switch"><input class="pw-notification-toggle" type="checkbox"><span class="pw-slider"></span></label></div>
+                <div class="pw-row"><div><div class="pw-label">${t('发送通知')}</div><div class="pw-note">${t('关闭后仍继续监测，但不会发送任何提醒')}</div></div><label class="pw-switch"><input class="pw-notification-toggle" type="checkbox"><span class="pw-slider"></span></label></div>
               </div>
               <div class="pw-card">
                 <div class="pw-form-grid">
                   <div class="pw-field"><label for="pw-bot-token">Telegram Bot Token</label><input id="pw-bot-token" type="password" autocomplete="off"></div>
-                  <div class="pw-field"><label for="pw-chat-id">Chat ID</label><input id="pw-chat-id" type="text" inputmode="numeric" placeholder="发送 /start 后可自动检测"></div>
+                  <div class="pw-field"><label for="pw-chat-id">Chat ID</label><input id="pw-chat-id" type="text" inputmode="numeric" placeholder="${t('发送 /start 后可自动检测')}"></div>
                 </div>
-                <div class="pw-actions"><button class="pw-button pw-primary" id="pw-save-telegram">保存配置</button><button class="pw-button" id="pw-detect-chat">自动检测 Chat ID</button><button class="pw-button" id="pw-test-telegram">发送测试通知</button><button class="pw-button pw-danger" id="pw-delete-telegram">删除配置</button></div>
+                <div class="pw-actions"><button class="pw-button pw-primary" id="pw-save-telegram">${t('保存配置')}</button><button class="pw-button" id="pw-detect-chat">${t('自动检测 Chat ID')}</button><button class="pw-button" id="pw-test-telegram">${t('发送测试通知')}</button><button class="pw-button pw-danger" id="pw-delete-telegram">${t('删除配置')}</button></div>
               </div>
             </section>
             <section class="pw-panel" data-panel="location">
-              <div class="pw-row"><div><h3 class="pw-section-title">定位模拟</h3><p class="pw-section-note">点击地图或拖动标记选择位置；保存后刷新页面生效。</p></div><span class="pw-badge" id="pw-location-badge"></span></div>
-              <div class="pw-card pw-row"><div><div class="pw-label">启用定位模拟</div><div class="pw-note">未保存有效坐标前不可开启</div></div><label class="pw-switch"><input class="pw-location-toggle" type="checkbox"><span class="pw-slider"></span></label></div>
-              <div class="pw-map-label">地图选点</div>
+              <div class="pw-row"><div><h3 class="pw-section-title">${t('定位模拟')}</h3><p class="pw-section-note">${t('点击地图或拖动标记选择位置；保存后刷新页面生效。')}</p></div><span class="pw-badge" id="pw-location-badge"></span></div>
+              <div class="pw-card pw-row"><div><div class="pw-label">${t('启用定位模拟')}</div><div class="pw-note">${t('未保存有效坐标前不可开启')}</div></div><label class="pw-switch"><input class="pw-location-toggle" type="checkbox"><span class="pw-slider"></span></label></div>
+              <div class="pw-map-label">${t('地图选点')}</div>
               <div class="pw-map-wrap">
                 <div class="pw-map" id="pw-location-map"></div>
                 <div class="pw-map-search">
-                  <form class="pw-search-form" id="pw-place-search"><input id="pw-place-query" type="text" maxlength="200" autocomplete="off" aria-label="搜索地点或地址" placeholder="搜索地点或地址"><button class="pw-button pw-primary" id="pw-search-button" type="submit">搜索</button></form>
+                  <form class="pw-search-form" id="pw-place-search"><input id="pw-place-query" type="text" maxlength="200" autocomplete="off" aria-label="${t('搜索地点或地址')}" placeholder="${t('搜索地点或地址')}"><button class="pw-button pw-primary" id="pw-search-button" type="submit">${t('搜索')}</button></form>
                   <div class="pw-search-note" id="pw-search-note" role="status" aria-live="polite"></div>
-                  <div class="pw-search-results" id="pw-search-results" aria-label="地点搜索结果"></div>
+                  <div class="pw-search-results" id="pw-search-results" aria-label="${t('地点搜索结果')}"></div>
                 </div>
               </div>
-              <div class="pw-note pw-search-privacy">点击搜索才会将搜索词发送给 <a href="https://photon.komoot.io/" target="_blank" rel="noopener noreferrer">Photon</a>；请勿输入敏感信息。数据 © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>。</div>
+              <div class="pw-note pw-search-privacy">${t('点击搜索才会将搜索词发送给 ')}<a href="https://photon.komoot.io/" target="_blank" rel="noopener noreferrer">Photon</a>${t('；请勿输入敏感信息。数据 © ')}<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>.</div>
               <div class="pw-location-grid">
-                <div class="pw-field"><label for="pw-latitude">Latitude</label><input id="pw-latitude" type="number" min="-90" max="90" step="any"></div>
-                <div class="pw-field"><label for="pw-longitude">Longitude</label><input id="pw-longitude" type="number" min="-180" max="180" step="any"></div>
-                <div class="pw-field"><label for="pw-accuracy">Accuracy (m)</label><input id="pw-accuracy" type="number" min="0.1" step="any"></div>
+                <div class="pw-field"><label for="pw-latitude">${t('纬度')}</label><input id="pw-latitude" type="number" min="-90" max="90" step="any"></div>
+                <div class="pw-field"><label for="pw-longitude">${t('经度')}</label><input id="pw-longitude" type="number" min="-180" max="180" step="any"></div>
+                <div class="pw-field"><label for="pw-accuracy">${t('精度（米）')}</label><input id="pw-accuracy" type="number" min="0.1" step="any"></div>
               </div>
-              <div class="pw-field" style="margin-top:10px"><label for="pw-error-mode">定位结果</label><select id="pw-error-mode"><option value="0">成功</option><option value="1">权限被拒绝</option><option value="2">位置不可用</option><option value="3">请求超时</option></select></div>
-              <div class="pw-actions"><button class="pw-button pw-primary" id="pw-save-location">保存定位设置</button><button class="pw-button" id="pw-test-location">运行自检</button></div>
+              <div class="pw-field" style="margin-top:10px"><label for="pw-error-mode">${t('定位结果')}</label><select id="pw-error-mode"><option value="0">${t('成功')}</option><option value="1">${t('权限被拒绝')}</option><option value="2">${t('位置不可用')}</option><option value="3">${t('请求超时')}</option></select></div>
+              <div class="pw-actions"><button class="pw-button pw-primary" id="pw-save-location">${t('保存定位设置')}</button><button class="pw-button" id="pw-test-location">${t('运行自检')}</button></div>
             </section>
             <section class="pw-panel" data-panel="favorites">
-              <h3 class="pw-section-title">收藏地点</h3><p class="pw-section-note">收藏后会出现在 Tampermonkey 菜单中，可一键切换并开启定位。</p>
-              <div class="pw-card"><div class="pw-favorite-compose"><input id="pw-favorite-name" type="text" maxlength="40" placeholder="地点名称，例如 UCI 校园"><button class="pw-button pw-primary" id="pw-add-favorite">收藏当前坐标</button></div></div>
+              <h3 class="pw-section-title">${t('收藏地点')}</h3><p class="pw-section-note">${t('收藏后会出现在 Tampermonkey 菜单中，可一键切换并开启定位。')}</p>
+              <div class="pw-card"><div class="pw-favorite-compose"><input id="pw-favorite-name" type="text" maxlength="40" placeholder="${t('地点名称')}"><button class="pw-button pw-primary" id="pw-add-favorite">${t('收藏当前坐标')}</button></div></div>
               <div class="pw-favorite-list" id="pw-favorite-list"></div>
             </section>
           </div>
-          <div class="pw-status" id="pw-settings-status" aria-live="polite">设置会立即保存在当前浏览器中。</div>
+          <div class="pw-status" id="pw-settings-status" aria-live="polite">${t('偏好设置自动保存；坐标修改需点击保存。')}</div>
         </main>
       </div>`;
 
-    const titles = { overview: '概览', notifications: '通知', location: '定位', favorites: '收藏地点' };
+    const titles = { overview: t('概览'), notifications: t('通知'), location: t('定位'), favorites: t('收藏地点') };
     const watchToggle = overlay.querySelector('#pw-watch-toggle');
+    const languageSelect = overlay.querySelector('#pw-language');
     const notificationToggles = [...overlay.querySelectorAll('.pw-notification-toggle')];
     const locationToggles = [...overlay.querySelectorAll('.pw-location-toggle')];
     const tokenInput = overlay.querySelector('#pw-bot-token');
@@ -979,17 +1147,17 @@
       const locationConfigured = isLocationConfigured();
       const telegramBadge = overlay.querySelector('#pw-telegram-badge');
       const locationBadge = overlay.querySelector('#pw-location-badge');
-      telegramBadge.textContent = telegramConfigured ? '已配置' : '未配置';
+      telegramBadge.textContent = telegramConfigured ? t('已配置') : t('未配置');
       telegramBadge.classList.toggle('is-unconfigured', !telegramConfigured);
-      locationBadge.textContent = locationConfigured ? '已配置' : '未配置';
+      locationBadge.textContent = locationConfigured ? t('已配置') : t('未配置');
       locationBadge.classList.toggle('is-unconfigured', !locationConfigured);
-      overlay.querySelector('#pw-notification-summary').textContent = telegramConfigured ? 'Telegram、桌面通知、声音和标题闪烁' : '尚未配置 Telegram；请前往“通知”设置';
-      overlay.querySelector('#pw-location-summary').textContent = locationConfigured ? '仅作用于 Poll Everywhere 页面' : '尚未保存定位设置';
+      overlay.querySelector('#pw-notification-summary').textContent = telegramConfigured ? t('Telegram、桌面通知、声音和标题闪烁') : t('尚未配置 Telegram；请前往“通知”设置');
+      overlay.querySelector('#pw-location-summary').textContent = locationConfigured ? t('仅作用于 Poll Everywhere 页面') : t('尚未保存定位设置');
       notificationToggles.forEach((toggle) => { toggle.disabled = !telegramConfigured; });
       locationToggles.forEach((toggle) => { toggle.disabled = !locationConfigured; });
       setAllChecked(notificationToggles, telegramConfigured && Boolean(GM_getValue(STORAGE_KEYS.notificationsEnabled, true)));
       setAllChecked(locationToggles, locationConfigured && isLocationMockEnabled());
-      tokenInput.placeholder = telegramConfigured ? '已保存；留空保持不变' : '从 @BotFather 复制完整 Token';
+      tokenInput.placeholder = telegramConfigured ? t('已保存；留空保持不变') : t('从 @BotFather 复制完整 Token');
       chatIdInput.value = String(GM_getValue(STORAGE_KEYS.chatId, ''));
     };
 
@@ -1011,13 +1179,15 @@
       }
       const leaflet = typeof L === 'undefined' ? null : L;
       if (!leaflet) {
-        setStatus('地图组件加载失败，仍可手动输入坐标。');
+        setStatus(t('地图组件加载失败，仍可手动输入坐标。'));
         return;
       }
       const initialPosition = [Number(latitude.value), Number(longitude.value)];
       map = leaflet.map(overlay.querySelector('#pw-location-map'), {
         scrollWheelZoom: false,
+        zoomControl: false,
       }).setView(initialPosition, 15);
+      leaflet.control.zoom({ zoomInTitle: t('放大'), zoomOutTitle: t('缩小') }).addTo(map);
       leaflet.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -1025,19 +1195,19 @@
       marker = leaflet.marker(initialPosition, {
         draggable: true,
         autoPan: true,
-        title: '拖动选择位置',
+        title: t('拖动选择位置'),
         icon: leaflet.divIcon({ className: 'pw-map-pin', iconSize: [26, 36], iconAnchor: [12, 29] }),
       }).addTo(map);
       map.on('click', (event) => setFormPosition(
         { latitude: event.latlng.lat, longitude: event.latlng.lng },
-        '地图位置已选择；保存后生效。',
+        t('地图位置已选择；保存后生效。'),
         false,
       ));
       marker.on('dragend', () => {
         const position = marker.getLatLng();
         setFormPosition(
           { latitude: position.lat, longitude: position.lng },
-          '标记位置已更新；保存后生效。',
+          t('标记位置已更新；保存后生效。'),
           false,
         );
       });
@@ -1058,6 +1228,13 @@
     accuracy.value = String(locationSetting('accuracy'));
     errorMode.value = String(locationSetting('errorCode'));
     refreshConfigurationUi();
+    languageSelect.value = languagePreference();
+    if (draftValues) {
+      Object.entries(draftValues).forEach(([id, value]) => {
+        const input = overlay.querySelector(`#${id}`);
+        if (input) input.value = value;
+      });
+    }
     (document.body || document.documentElement).appendChild(overlay);
 
     const closePanel = () => {
@@ -1072,12 +1249,23 @@
     overlay.querySelector('.pw-close').addEventListener('click', closePanel);
     overlay.addEventListener('click', (event) => { if (event.target === overlay) closePanel(); });
     overlay.querySelectorAll('.pw-nav-button').forEach((button) => button.addEventListener('click', () => showSection(button.dataset.section)));
+    languageSelect.addEventListener('change', () => {
+      const drafts = Object.fromEntries([...overlay.querySelectorAll('input[id], select[id]')]
+        .filter((input) => input.id !== 'pw-language' && input.type !== 'checkbox')
+        .map((input) => [input.id, input.value]));
+      GM_setValue(LANGUAGE_KEY, languageSelect.value);
+      closePanel();
+      refreshControlMenus();
+      setBadge(state, GM_getValue(STORAGE_KEYS.enabled, true) ? '' : t('PollEv Watcher：监测已暂停'));
+      updateLocationBadge();
+      openSettingsPanel('overview', drafts);
+    });
 
     searchInput.addEventListener('input', () => {
       searchRevision += 1;
       placeSearch.cancel();
       searchButton.disabled = false;
-      searchButton.textContent = '搜索';
+      searchButton.textContent = t('搜索');
       searchResults.replaceChildren();
       searchNote.textContent = '';
     });
@@ -1087,12 +1275,12 @@
       const revision = ++searchRevision;
       searchResults.replaceChildren();
       searchButton.disabled = true;
-      searchButton.textContent = '搜索中…';
-      searchNote.textContent = '正在搜索地点…';
+      searchButton.textContent = t('搜索中…');
+      searchNote.textContent = t('正在搜索地点…');
       try {
         const results = await placeSearch.search(searchInput.value);
         if (revision !== searchRevision) return;
-        searchNote.textContent = results.length ? '选择一个结果，或继续在地图上调整；保存后生效。' : '没有找到地点，请补充城市或尝试其他名称，也可以直接在地图选点。';
+        searchNote.textContent = results.length ? t('选择一个结果，或继续在地图上调整；保存后生效。') : t('没有找到地点，请补充城市或尝试其他名称，也可以直接在地图选点。');
         results.forEach((result) => {
           const button = document.createElement('button');
           button.type = 'button';
@@ -1103,9 +1291,9 @@
           address.textContent = result.address || `${result.latitude.toFixed(6)}, ${result.longitude.toFixed(6)}`;
           button.append(name, address);
           button.addEventListener('click', () => {
-            setFormPosition(result, `已选择“${result.name}”；请保存定位设置后生效。`);
+            setFormPosition(result, t('已选择“{name}”；请保存定位设置后生效。', { name: result.name }));
             searchResults.replaceChildren();
-            searchNote.textContent = `已选择：${result.name}。可以拖动标记微调。`;
+            searchNote.textContent = t('已选择：{name}。可以拖动标记微调。', { name: result.name });
           });
           searchResults.appendChild(button);
         });
@@ -1114,7 +1302,7 @@
       } finally {
         if (revision === searchRevision) {
           searchButton.disabled = false;
-          searchButton.textContent = '搜索';
+          searchButton.textContent = t('搜索');
         }
       }
     });
@@ -1123,20 +1311,20 @@
       GM_setValue(STORAGE_KEYS.enabled, watchToggle.checked);
       evaluateState();
       refreshControlMenus();
-      setStatus(`状态监测已${watchToggle.checked ? '开启' : '暂停'}。`);
+      setStatus(t('状态监测已{state}。', { state: t(watchToggle.checked ? '开启' : '暂停') }));
     });
     notificationToggles.forEach((toggle) => toggle.addEventListener('change', () => {
       GM_setValue(STORAGE_KEYS.notificationsEnabled, toggle.checked);
       setAllChecked(notificationToggles, toggle.checked);
       refreshControlMenus();
-      setStatus(`通知已${toggle.checked ? '开启' : '关闭'}。`);
+      setStatus(t('通知已{state}。', { state: t(toggle.checked ? '开启' : '关闭') }));
     }));
     locationToggles.forEach((toggle) => toggle.addEventListener('change', () => {
       GM_setValue(STORAGE_KEYS.locationEnabled, toggle.checked);
       setAllChecked(locationToggles, toggle.checked);
       updateLocationBadge();
       refreshControlMenus();
-      setStatus(`定位模拟已${toggle.checked ? '开启' : '关闭'}。请刷新页面后重新检查定位。`);
+      setStatus(t('定位模拟已{state}。请刷新页面后重新检查定位。', { state: t(toggle.checked ? '开启' : '关闭') }));
     }));
 
     overlay.querySelector('#pw-save-telegram').addEventListener('click', () => {
@@ -1144,11 +1332,11 @@
       const nextToken = tokenInput.value.trim() || currentToken;
       const nextChatId = chatIdInput.value.trim();
       if (!/^\d+:[A-Za-z0-9_-]+$/.test(nextToken)) {
-        setStatus('Token 格式不正确，请从 @BotFather 复制完整 Token。');
+        setStatus(t('Token 格式不正确，请从 @BotFather 复制完整 Token。'));
         return;
       }
       if (!/^-?\d+$/.test(nextChatId)) {
-        setStatus('Chat ID 应为一串数字；可先给机器人发送 /start，再自动检测。');
+        setStatus(t('Chat ID 应为一串数字；可先给机器人发送 /start，再自动检测。'));
         return;
       }
       GM_setValue(STORAGE_KEYS.botToken, nextToken);
@@ -1156,49 +1344,49 @@
       tokenInput.value = '';
       refreshConfigurationUi();
       refreshControlMenus();
-      setStatus('Telegram 配置已保存。');
+      setStatus(t('Telegram 配置已保存。'));
     });
     overlay.querySelector('#pw-detect-chat').addEventListener('click', async () => {
       const candidateToken = tokenInput.value.trim() || String(GM_getValue(STORAGE_KEYS.botToken, '')).trim();
       if (!/^\d+:[A-Za-z0-9_-]+$/.test(candidateToken)) {
-        setStatus('请先输入有效的 Bot Token。');
+        setStatus(t('请先输入有效的 Bot Token。'));
         return;
       }
-      setStatus('正在检测最近的 Telegram 对话…');
+      setStatus(t('正在检测最近的 Telegram 对话…'));
       try {
         const chat = await detectLatestTelegramChat(candidateToken);
         if (!chat?.id) {
-          setStatus('没有检测到对话。请先给机器人发送 /start，然后重试。');
+          setStatus(t('没有检测到对话。请先给机器人发送 /start，然后重试。'));
           return;
         }
         chatIdInput.value = String(chat.id);
         const detectedName = normalizeText([chat.first_name, chat.last_name, chat.title].filter(Boolean).join(' '));
-        setStatus(`已检测到 Chat ID${detectedName ? `（${detectedName}）` : ''}；请点击“保存配置”。`);
+        setStatus(t('已检测到 Chat ID{name}；请点击“保存配置”。', { name: detectedName ? ` (${detectedName})` : '' }));
       } catch (error) {
-        setStatus(`检测失败：${error.message}`);
+        setStatus(t('检测失败：{error}', { error: error.message }));
       }
     });
     overlay.querySelector('#pw-test-telegram').addEventListener('click', async () => {
       if (!isTelegramConfigured()) {
-        setStatus('请先保存 Telegram 配置。');
+        setStatus(t('请先保存 Telegram 配置。'));
         return;
       }
-      setStatus('正在发送测试通知…');
+      setStatus(t('正在发送测试通知…'));
       try {
-        await sendTelegramMessage(`✅ PollEv Watcher 测试成功\n${location.href}`);
-        setStatus('Telegram 测试通知已发送。');
+        await sendTelegramMessage(`${t('✅ PollEv Watcher 测试成功')}\n${location.href}`);
+        setStatus(t('Telegram 测试通知已发送。'));
       } catch (error) {
-        setStatus(`发送失败：${error.message}`);
+        setStatus(t('发送失败：{error}', { error: error.message }));
       }
     });
     overlay.querySelector('#pw-delete-telegram').addEventListener('click', () => {
-      if (!window.confirm('确定删除保存在 Tampermonkey 中的 Bot Token 和 Chat ID 吗？')) return;
+      if (!window.confirm(t('确定删除保存在 Tampermonkey 中的 Bot Token 和 Chat ID 吗？'))) return;
       GM_deleteValue(STORAGE_KEYS.botToken);
       GM_deleteValue(STORAGE_KEYS.chatId);
       tokenInput.value = '';
       refreshConfigurationUi();
       refreshControlMenus();
-      setStatus('Telegram 配置已删除。');
+      setStatus(t('Telegram 配置已删除。'));
     });
 
     overlay.querySelector('#pw-save-location').addEventListener('click', () => {
@@ -1206,7 +1394,7 @@
       if (!Number.isFinite(values.latitude) || values.latitude < -90 || values.latitude > 90
         || !Number.isFinite(values.longitude) || values.longitude < -180 || values.longitude > 180
         || !Number.isFinite(values.accuracy) || values.accuracy <= 0 || ![0, 1, 2, 3].includes(values.errorCode)) {
-        setStatus('坐标、精度或错误模式格式不正确。');
+        setStatus(t('坐标、精度或错误模式格式不正确。'));
         return;
       }
       GM_setValue(STORAGE_KEYS.latitude, values.latitude);
@@ -1217,7 +1405,7 @@
       refreshConfigurationUi();
       updateLocationBadge();
       refreshControlMenus();
-      setStatus('定位设置已保存。现在可以开启定位模拟；开启后请刷新页面。');
+      setStatus(t('定位设置已保存。现在可以开启定位模拟；开启后请刷新页面。'));
     });
     overlay.querySelector('#pw-test-location').addEventListener('click', testLocationMock);
 
@@ -1227,7 +1415,7 @@
       if (!locations.length) {
         const empty = document.createElement('div');
         empty.className = 'pw-card pw-note';
-        empty.textContent = '还没有收藏地点。请先在“定位”中选好坐标，再返回这里收藏。';
+        empty.textContent = t('还没有收藏地点。请先在“定位”中选好坐标，再返回这里收藏。');
         favoriteList.appendChild(empty);
         return;
       }
@@ -1240,24 +1428,24 @@
         name.title = `${savedLocation.latitude}, ${savedLocation.longitude}`;
         const useButton = document.createElement('button');
         useButton.className = 'pw-button pw-small';
-        useButton.textContent = '使用';
+        useButton.textContent = t('使用');
         useButton.addEventListener('click', () => {
           activateSavedLocation(savedLocation);
           errorMode.value = '0';
           accuracy.value = String(savedLocation.accuracy);
           setFormPosition(savedLocation);
           refreshConfigurationUi();
-          setStatus(`已切换到“${savedLocation.name}”并开启定位；请刷新页面。`);
+          setStatus(t('已切换到“{name}”并开启定位；请刷新页面。', { name: savedLocation.name }));
         });
         const deleteButton = document.createElement('button');
         deleteButton.className = 'pw-button pw-small pw-danger';
-        deleteButton.textContent = '删除';
+        deleteButton.textContent = t('删除');
         deleteButton.addEventListener('click', () => {
-          if (!window.confirm(`删除收藏地点“${savedLocation.name}”吗？`)) return;
+          if (!window.confirm(t('删除收藏地点“{name}”吗？', { name: savedLocation.name }))) return;
           storeSavedLocations(savedLocations().filter(({ id }) => id !== savedLocation.id));
           refreshControlMenus();
           renderSavedLocations();
-          setStatus(`已删除“${savedLocation.name}”。`);
+          setStatus(t('已删除“{name}”。', { name: savedLocation.name }));
         });
         row.append(name, useButton, deleteButton);
         favoriteList.appendChild(row);
@@ -1274,13 +1462,13 @@
         accuracy: Number(accuracy.value),
       };
       if (!name) {
-        setStatus('请先输入收藏地点名称。');
+        setStatus(t('请先输入收藏地点名称。'));
         return;
       }
       if (!Number.isFinite(nextLocation.latitude) || nextLocation.latitude < -90 || nextLocation.latitude > 90
         || !Number.isFinite(nextLocation.longitude) || nextLocation.longitude < -180 || nextLocation.longitude > 180
         || !Number.isFinite(nextLocation.accuracy) || nextLocation.accuracy <= 0) {
-        setStatus('当前坐标或精度格式不正确，无法收藏。');
+        setStatus(t('当前坐标或精度格式不正确，无法收藏。'));
         return;
       }
       const locations = savedLocations();
@@ -1295,7 +1483,7 @@
       favoriteName.value = '';
       refreshControlMenus();
       renderSavedLocations();
-      setStatus(duplicateIndex >= 0 ? `已更新收藏地点“${name}”。` : `已收藏“${name}”。`);
+      setStatus(duplicateIndex >= 0 ? t('已更新收藏地点“{name}”。', { name }) : t('已收藏“{name}”。', { name }));
     });
 
     renderSavedLocations();

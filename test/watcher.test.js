@@ -13,6 +13,8 @@ function createHarness(options = {}) {
   let evaluateInterval;
   let telegramMessages = 0;
   let localAlerts = 0;
+  const alertMessages = [];
+  const telegramPayloads = [];
   let questionTitle = '';
   let nativeLocationCalls = 0;
   const menuEntries = new Map();
@@ -55,6 +57,7 @@ function createHarness(options = {}) {
     ['telegramChatId', options.telegramConfigured === false ? '' : '12345678'],
     ['locationMockSavedLocations', options.savedLocations || []],
   ]);
+  if (options.interfaceLanguage) values.set('interfaceLanguage', options.interfaceLanguage);
   if (options.locationConfigured) {
     values.set('locationMockConfigured', true);
     values.set('locationMockEnabled', false);
@@ -78,7 +81,7 @@ function createHarness(options = {}) {
     GM_addStyle: () => {},
     GM_getResourceText: () => '',
     GM_getValue: (key, fallback) => values.has(key) ? values.get(key) : fallback,
-    GM_notification: () => { localAlerts += 1; },
+    GM_notification: (notification) => { localAlerts += 1; alertMessages.push(notification); },
     GM_registerMenuCommand: (label, callback, options) => {
       const id = options?.id ?? nextMenuId++;
       menuEntries.set(id, { label, callback });
@@ -88,6 +91,7 @@ function createHarness(options = {}) {
     GM_setValue: (key, value) => values.set(key, value),
     GM_xmlhttpRequest: (options) => {
       telegramMessages += 1;
+      telegramPayloads.push(JSON.parse(options.data));
       options.onload({ status: 200, responseText: '{"ok":true,"result":{}}' });
     },
     window: {
@@ -95,7 +99,7 @@ function createHarness(options = {}) {
       confirm: () => true,
       focus() {},
       prompt: () => null,
-      navigator: { geolocation },
+      navigator: { geolocation, language: options.browserLanguage || 'zh-CN' },
       Geolocation: function Geolocation() {},
       clearInterval() {},
       clearTimeout() {},
@@ -134,6 +138,8 @@ function createHarness(options = {}) {
       evaluateInterval();
     },
     counts: () => ({ telegramMessages, localAlerts }),
+    alertMessages,
+    telegramPayloads,
     enableLocation(latitude = 33.64, longitude = -117.84, accuracy = 7) {
       values.set('locationMockEnabled', true);
       values.set('locationMockLatitude', latitude);
@@ -157,6 +163,29 @@ function createHarness(options = {}) {
 test('metadata includes both Poll Everywhere participant domains', () => {
   assert.match(source, /@match\s+https:\/\/pollev\.com\/\*/);
   assert.match(source, /@match\s+https:\/\/pe\.app\/\*/);
+});
+
+test('English browser language localizes menus and notifications', () => {
+  const harness = createHarness({ browserLanguage: 'en-US' });
+  assert.ok(harness.menuLabels().includes('⏯️ Monitoring [On]'));
+  assert.ok(harness.menuLabels().includes('📍 Location [Not configured]'));
+  assert.ok(harness.menuLabels().includes('🎛️ Open Watcher settings'));
+  harness.wait();
+  harness.activate();
+  assert.equal(harness.alertMessages[0].title, 'Poll Everywhere is active');
+  assert.match(harness.telegramPayloads[0].text, /Page: Test presentation/);
+  assert.doesNotMatch(harness.telegramPayloads[0].text, /[\u4e00-\u9fff]/);
+});
+
+test('explicit Chinese preference overrides the English browser and retains saved names', () => {
+  const harness = createHarness({ browserLanguage: 'en-US', interfaceLanguage: 'zh', savedLocations: [
+    { id: 'library', name: 'My library', latitude: 1, longitude: 2, accuracy: 10 },
+  ] });
+  assert.ok(harness.menuLabels().includes('⏯️ 监测 [已开启]'));
+  assert.ok(harness.menuLabels().includes('📌 My library'));
+  harness.wait();
+  harness.activate();
+  assert.equal(harness.alertMessages[0].title, 'Poll Everywhere 已开启');
 });
 
 test('each waiting-to-active transition sends one notification', async () => {
