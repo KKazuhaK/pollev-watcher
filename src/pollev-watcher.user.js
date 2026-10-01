@@ -2,7 +2,7 @@
 // @name         PollEv Watcher
 // @author       KKazuhaK
 // @namespace    https://github.com/pollev-watcher
-// @version      0.6.1
+// @version      0.6.2
 // @description  Notify Telegram when a Poll Everywhere activity becomes active.
 // @license      MIT
 // @homepageURL  https://github.com/KKazuhaK/pollev-watcher
@@ -670,6 +670,7 @@
         #pollev-watcher-settings * { box-sizing: border-box; }
         #pollev-watcher-settings .pw-shell {
           display: grid; grid-template-columns: 190px minmax(0, 1fr); width: min(900px, 100%);
+          grid-template-rows: minmax(0, 1fr);
           height: min(680px, calc(100vh - 40px)); overflow: hidden; border: 1px solid rgba(255,255,255,.55);
           border-radius: 18px; background: #fff; box-shadow: 0 24px 80px rgba(0, 0, 0, .36);
         }
@@ -687,7 +688,10 @@
         #pollev-watcher-settings .pw-nav-button:hover { background: rgba(255,255,255,.09); color: #fff; }
         #pollev-watcher-settings .pw-nav-button.is-active { color: #fff; background: rgba(59,130,246,.42); }
         #pollev-watcher-settings .pw-sidebar-note { margin-top: auto; padding: 14px 10px 0; color: #93c5fd; font-size: 11px; }
-        #pollev-watcher-settings .pw-main { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; }
+        #pollev-watcher-settings .pw-main {
+          display: grid; grid-template-rows: auto minmax(0, 1fr) auto;
+          min-width: 0; min-height: 0; overflow: hidden;
+        }
         #pollev-watcher-settings .pw-header {
           display: flex; align-items: center; justify-content: space-between; min-height: 68px;
           padding: 0 24px; border-bottom: 1px solid #e5e7eb;
@@ -697,7 +701,10 @@
           width: 34px; height: 34px; border: 0; border-radius: 9px; color: #64748b;
           background: #f1f5f9; cursor: pointer; font-size: 23px; line-height: 1;
         }
-        #pollev-watcher-settings .pw-content { overflow: auto; padding: 22px 24px; background: #f8fafc; }
+        #pollev-watcher-settings .pw-content {
+          min-height: 0; overflow-y: auto; overscroll-behavior-y: contain;
+          scrollbar-gutter: stable; padding: 22px 24px; background: #f8fafc;
+        }
         #pollev-watcher-settings .pw-panel { display: none; }
         #pollev-watcher-settings .pw-panel.is-active { display: block; }
         #pollev-watcher-settings .pw-section-title { margin: 0 0 4px; font-size: 17px; }
@@ -886,7 +893,9 @@
         return;
       }
       const initialPosition = [Number(latitude.value), Number(longitude.value)];
-      map = leaflet.map(overlay.querySelector('#pw-location-map')).setView(initialPosition, 15);
+      map = leaflet.map(overlay.querySelector('#pw-location-map'), {
+        scrollWheelZoom: false,
+      }).setView(initialPosition, 15);
       leaflet.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
