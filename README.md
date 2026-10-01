@@ -31,11 +31,13 @@ The location-testing controls are part of PollEv Watcher; no second userscript o
 
 1. Open any supported Poll Everywhere page.
 2. In the Tampermonkey menu, open **Watcher settings**. The neighboring status-labelled commands provide one-click monitoring and location toggles for frequent use.
-3. Click the OpenStreetMap map or drag its marker to choose coordinates, then save them and turn on the **Location mocking** switch.
+3. Search for a place or address and select a result, click the OpenStreetMap map, or drag its marker to choose coordinates, then save them and turn on the **Location mocking** switch.
 4. Refresh the page before triggering a new location check.
 5. Use the panel's **Self-test** button to verify the coordinates returned to the page.
 
 The feature is disabled by default. While enabled, a purple badge in the lower-left corner displays the configured coordinates. Favorite locations can be named and saved from the settings panel; each favorite also appears as a one-click `📌` command in the Tampermonkey menu. It affects only the Poll Everywhere domains listed in the userscript metadata. The map uses OpenStreetMap tiles and does not require a Google Maps API key.
+
+Place search uses the public [Photon service](https://github.com/komoot/photon) and OpenStreetMap data. Press **Search** or Enter to fetch up to five results; typing alone makes no requests. Queries are rate-limited and cached in memory for the current page. Selecting a result only updates the draft coordinates: it does not save them or enable location testing. Search may be unavailable or throttled; manual coordinates and map selection remain available. Tampermonkey may ask to allow access to `photon.komoot.io` after updating.
 
 ## Requirements
 

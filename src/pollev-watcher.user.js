@@ -2,7 +2,7 @@
 // @name         PollEv Watcher
 // @author       KKazuhaK
 // @namespace    https://github.com/pollev-watcher
-// @version      0.6.2
+// @version      0.7.0
 // @description  Notify Telegram when a Poll Everywhere activity becomes active.
 // @license      MIT
 // @homepageURL  https://github.com/KKazuhaK/pollev-watcher
@@ -25,6 +25,7 @@
 // @require      https://unpkg.com/leaflet@1.9.4/dist/leaflet.js
 // @resource     leafletCSS https://unpkg.com/leaflet@1.9.4/dist/leaflet.css
 // @connect      api.telegram.org
+// @connect      photon.komoot.io
 // @run-at       document-start
 // ==/UserScript==
 
@@ -93,6 +94,85 @@
   let settingsMenuId = null;
   let savedLocationMenuIds = [];
   let leafletCssAdded = false;
+  const placeSearch = createPlaceSearchClient();
+
+  function normalizePlaceResults(data) {
+    if (!Array.isArray(data?.features)) throw new Error('搜索服务返回了无效数据，请稍后重试。');
+    return data.features.flatMap((feature) => {
+      const coordinates = feature?.geometry?.coordinates;
+      if (feature?.geometry?.type !== 'Point' || !Array.isArray(coordinates)) return [];
+      const [longitude, latitude] = coordinates;
+      if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90
+        || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) return [];
+      const properties = feature.properties || {};
+      const address = [...new Set([
+        [properties.housenumber, properties.street].filter(Boolean).join(' '),
+        properties.city, properties.state, properties.country,
+      ].filter((part) => typeof part === 'string' && part.trim()))].join(', ');
+      return [{ latitude, longitude, name: String(properties.name || properties.street || properties.city || '未命名地点'), address }];
+    }).slice(0, 5);
+  }
+
+  function createPlaceSearchClient() {
+    const cache = new Map();
+    let lastRequestAt = -Infinity;
+    let pending = null;
+    return {
+      search(value) {
+        const query = value.trim().replace(/\s+/g, ' ');
+        if (query.length < 2) return Promise.reject(new Error('请输入至少两个字符的地点名称或地址。'));
+        if (query.length > 200) return Promise.reject(new Error('搜索内容过长，请缩短后重试。'));
+        const key = query.toLowerCase();
+        if (cache.has(key)) return Promise.resolve(cache.get(key));
+        if (pending) return Promise.reject(new Error('正在搜索，请等待当前搜索完成。'));
+        if (Date.now() - lastRequestAt < 1200) return Promise.reject(new Error('搜索过于频繁，请稍等再试。'));
+        lastRequestAt = Date.now();
+        return new Promise((resolve, reject) => {
+          const operation = { request: null, cancel: null };
+          pending = operation;
+          const finish = (error, results) => {
+            if (pending !== operation) return;
+            pending = null;
+            if (error) reject(error);
+            else {
+              cache.set(key, results);
+              if (cache.size > 20) cache.delete(cache.keys().next().value);
+              resolve(results);
+            }
+          };
+          operation.cancel = () => {
+            finish(new Error('搜索已取消。'));
+            operation.request?.abort();
+          };
+          try {
+            operation.request = GM_xmlhttpRequest({
+              method: 'GET',
+              url: `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5`,
+              headers: { Accept: 'application/json' },
+              anonymous: true,
+              timeout: 15_000,
+              onload: (response) => {
+                if (response.status === 429) {
+                  finish(new Error('搜索服务暂时限流，请稍后重试。'));
+                  return;
+                }
+                if (response.status < 200 || response.status >= 300) {
+                  finish(new Error('搜索服务暂不可用，请稍后重试或手动选点。'));
+                  return;
+                }
+                try { finish(null, normalizePlaceResults(JSON.parse(response.responseText))); }
+                catch { finish(new Error('搜索服务返回了无效数据，请稍后重试。')); }
+              },
+              onerror: () => finish(new Error('无法连接搜索服务，请检查网络或 Tampermonkey 的域名访问权限。')),
+              ontimeout: () => finish(new Error('搜索超时，请重试或手动选点。')),
+              onabort: () => finish(new Error('搜索已取消。')),
+            });
+          } catch { finish(new Error('无法发起搜索，请检查 Tampermonkey 的域名访问权限。')); }
+        });
+      },
+      cancel() { pending?.cancel(); },
+    };
+  }
 
   const pageWindow = typeof unsafeWindow === 'undefined' ? window : unsafeWindow;
   const geolocation = pageWindow.navigator?.geolocation;
@@ -747,10 +827,38 @@
         #pollev-watcher-settings .pw-primary { color: #fff; background: #2563eb; }
         #pollev-watcher-settings .pw-danger { color: #b91c1c; background: #fee2e2; }
         #pollev-watcher-settings .pw-map-label { margin: 14px 0 7px; color: #475569; font-size: 12px; }
-        #pollev-watcher-settings .pw-map { height: 300px; overflow: hidden; border: 1px solid #cbd5e1; border-radius: 11px; background: #e2e8f0; }
-        #pollev-watcher-settings .pw-map-pin { width: 26px !important; height: 36px !important; margin: 0 !important; border: 0; background: transparent; }
+        #pollev-watcher-settings .pw-map-wrap { position: relative; isolation: isolate; }
+        #pollev-watcher-settings .pw-map-search {
+          position: absolute; top: 12px; left: 52px; right: 12px; z-index: 1001;
+          display: flex; flex-direction: column; max-height: calc(100% - 24px);
+        }
+        #pollev-watcher-settings .pw-search-form {
+          display: flex; flex-shrink: 0; gap: 6px; padding: 5px; border: 1px solid #cbd5e1; border-radius: 10px;
+          background: #fff; box-shadow: 0 2px 10px rgba(15,23,42,.18);
+        }
+        #pollev-watcher-settings .pw-search-form input { min-width: 0; flex: 1; }
+        #pollev-watcher-settings .pw-search-form button { flex-shrink: 0; }
+        #pollev-watcher-settings .pw-search-results {
+          display: grid; gap: 5px; min-height: 0; max-height: 150px; overflow-y: auto; overscroll-behavior: contain;
+          margin-top: 5px; padding: 5px; border-radius: 9px; background: #fff; box-shadow: 0 2px 10px rgba(15,23,42,.18);
+        }
+        #pollev-watcher-settings .pw-search-results:empty, #pollev-watcher-settings .pw-search-note:empty { display: none; }
+        #pollev-watcher-settings .pw-search-result {
+          width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 9px;
+          text-align: left; color: #172033; background: #fff; cursor: pointer; overflow-wrap: anywhere;
+        }
+        #pollev-watcher-settings .pw-search-result:hover, #pollev-watcher-settings .pw-search-result:focus-visible { border-color: #2563eb; background: #eff6ff; }
+        #pollev-watcher-settings .pw-search-result strong, #pollev-watcher-settings .pw-search-result small { display: block; }
+        #pollev-watcher-settings .pw-search-result small { margin-top: 3px; color: #64748b; }
+        #pollev-watcher-settings .pw-search-note {
+          flex-shrink: 0; margin-top: 5px; padding: 7px 9px; border-radius: 8px; color: #475569; background: #fff;
+          box-shadow: 0 2px 10px rgba(15,23,42,.12); font-size: 12px;
+        }
+        #pollev-watcher-settings .pw-search-privacy { margin-top: 7px; }
+        #pollev-watcher-settings .pw-map { z-index: 0; height: 300px; overflow: hidden; border: 1px solid #cbd5e1; border-radius: 11px; background: #e2e8f0; }
+        #pollev-watcher-settings .pw-map-pin { width: 26px !important; height: 36px !important; border: 0; background: transparent; }
         #pollev-watcher-settings .pw-map-pin::before {
-          content: ""; display: block; width: 24px; height: 24px; border: 3px solid #fff;
+          content: ""; display: block; box-sizing: border-box; width: 24px; height: 24px; border: 3px solid #fff;
           border-radius: 50% 50% 50% 0; background: #dc2626; box-shadow: 0 2px 7px rgba(0,0,0,.35); transform: rotate(-45deg);
         }
         #pollev-watcher-settings .leaflet-control-attribution { font-size: 9px; }
@@ -815,7 +923,16 @@
             <section class="pw-panel" data-panel="location">
               <div class="pw-row"><div><h3 class="pw-section-title">定位模拟</h3><p class="pw-section-note">点击地图或拖动标记选择位置；保存后刷新页面生效。</p></div><span class="pw-badge" id="pw-location-badge"></span></div>
               <div class="pw-card pw-row"><div><div class="pw-label">启用定位模拟</div><div class="pw-note">未保存有效坐标前不可开启</div></div><label class="pw-switch"><input class="pw-location-toggle" type="checkbox"><span class="pw-slider"></span></label></div>
-              <div class="pw-map-label">地图选点</div><div class="pw-map" id="pw-location-map"></div>
+              <div class="pw-map-label">地图选点</div>
+              <div class="pw-map-wrap">
+                <div class="pw-map" id="pw-location-map"></div>
+                <div class="pw-map-search">
+                  <form class="pw-search-form" id="pw-place-search"><input id="pw-place-query" type="text" maxlength="200" autocomplete="off" aria-label="搜索地点或地址" placeholder="搜索地点或地址"><button class="pw-button pw-primary" id="pw-search-button" type="submit">搜索</button></form>
+                  <div class="pw-search-note" id="pw-search-note" role="status" aria-live="polite"></div>
+                  <div class="pw-search-results" id="pw-search-results" aria-label="地点搜索结果"></div>
+                </div>
+              </div>
+              <div class="pw-note pw-search-privacy">点击搜索才会将搜索词发送给 <a href="https://photon.komoot.io/" target="_blank" rel="noopener noreferrer">Photon</a>；请勿输入敏感信息。数据 © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>。</div>
               <div class="pw-location-grid">
                 <div class="pw-field"><label for="pw-latitude">Latitude</label><input id="pw-latitude" type="number" min="-90" max="90" step="any"></div>
                 <div class="pw-field"><label for="pw-longitude">Longitude</label><input id="pw-longitude" type="number" min="-180" max="180" step="any"></div>
@@ -847,6 +964,11 @@
     const favoriteName = overlay.querySelector('#pw-favorite-name');
     const favoriteList = overlay.querySelector('#pw-favorite-list');
     const status = overlay.querySelector('#pw-settings-status');
+    const searchInput = overlay.querySelector('#pw-place-query');
+    const searchButton = overlay.querySelector('#pw-search-button');
+    const searchNote = overlay.querySelector('#pw-search-note');
+    const searchResults = overlay.querySelector('#pw-search-results');
+    let searchRevision = 0;
     let map = null;
     let marker = null;
 
@@ -939,6 +1061,8 @@
     (document.body || document.documentElement).appendChild(overlay);
 
     const closePanel = () => {
+      searchRevision += 1;
+      placeSearch.cancel();
       map?.remove();
       document.removeEventListener('keydown', onKeyDown);
       overlay.remove();
@@ -948,6 +1072,52 @@
     overlay.querySelector('.pw-close').addEventListener('click', closePanel);
     overlay.addEventListener('click', (event) => { if (event.target === overlay) closePanel(); });
     overlay.querySelectorAll('.pw-nav-button').forEach((button) => button.addEventListener('click', () => showSection(button.dataset.section)));
+
+    searchInput.addEventListener('input', () => {
+      searchRevision += 1;
+      placeSearch.cancel();
+      searchButton.disabled = false;
+      searchButton.textContent = '搜索';
+      searchResults.replaceChildren();
+      searchNote.textContent = '';
+    });
+    overlay.querySelector('#pw-place-search').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (searchButton.disabled) return;
+      const revision = ++searchRevision;
+      searchResults.replaceChildren();
+      searchButton.disabled = true;
+      searchButton.textContent = '搜索中…';
+      searchNote.textContent = '正在搜索地点…';
+      try {
+        const results = await placeSearch.search(searchInput.value);
+        if (revision !== searchRevision) return;
+        searchNote.textContent = results.length ? '选择一个结果，或继续在地图上调整；保存后生效。' : '没有找到地点，请补充城市或尝试其他名称，也可以直接在地图选点。';
+        results.forEach((result) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'pw-search-result';
+          const name = document.createElement('strong');
+          name.textContent = result.name;
+          const address = document.createElement('small');
+          address.textContent = result.address || `${result.latitude.toFixed(6)}, ${result.longitude.toFixed(6)}`;
+          button.append(name, address);
+          button.addEventListener('click', () => {
+            setFormPosition(result, `已选择“${result.name}”；请保存定位设置后生效。`);
+            searchResults.replaceChildren();
+            searchNote.textContent = `已选择：${result.name}。可以拖动标记微调。`;
+          });
+          searchResults.appendChild(button);
+        });
+      } catch (error) {
+        if (revision === searchRevision) searchNote.textContent = error.message;
+      } finally {
+        if (revision === searchRevision) {
+          searchButton.disabled = false;
+          searchButton.textContent = '搜索';
+        }
+      }
+    });
 
     watchToggle.addEventListener('change', () => {
       GM_setValue(STORAGE_KEYS.enabled, watchToggle.checked);
