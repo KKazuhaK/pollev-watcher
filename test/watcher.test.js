@@ -213,6 +213,29 @@ test('a changed question heading sends one additional notification', () => {
   assert.equal(harness.counts().localAlerts, 2);
 });
 
+test('a question change notifies even when the page loaded mid-session', () => {
+  const harness = createHarness();
+
+  harness.nextQuestion('l4-Q1');
+  assert.equal(harness.counts().telegramMessages, 0);
+
+  harness.nextQuestion('l4-Q2');
+  harness.nextQuestion('l4-Q2');
+  assert.equal(harness.counts().telegramMessages, 1);
+  assert.equal(harness.alertMessages[0].title, 'Poll Everywhere 新题已开启');
+});
+
+test('a login prompt is not mistaken for a question', () => {
+  const harness = createHarness();
+
+  harness.nextQuestion('Pre-registration required');
+  harness.nextQuestion('l4-Q1');
+  assert.equal(harness.counts().telegramMessages, 0);
+
+  harness.nextQuestion('l4-Q2');
+  assert.equal(harness.counts().telegramMessages, 1);
+});
+
 test('location mocking is disabled by default and delegates to the browser', () => {
   const harness = createHarness();
   let received;

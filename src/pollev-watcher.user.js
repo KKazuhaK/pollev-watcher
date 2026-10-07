@@ -2,7 +2,7 @@
 // @name         PollEv Watcher
 // @author       KKazuhaK
 // @namespace    https://github.com/pollev-watcher
-// @version      0.8.0
+// @version      0.8.1
 // @description  Notify Telegram when a Poll Everywhere activity becomes active.
 // @license      MIT
 // @homepageURL  https://github.com/KKazuhaK/pollev-watcher
@@ -239,6 +239,8 @@
     /no active activit(?:y|ies)/i,
     /presentation has ended/i,
     /session has ended/i,
+    /pre-registration required/i,
+    /please log in to the poll everywhere account/i,
   ];
 
   const CHECK_DELAY_MS = 500;
@@ -604,7 +606,7 @@
       'button[type="submit"]',
     ].join(',')));
 
-    if (waitingWasObserved && (hasActivityControl || text.length > 0)) {
+    if (hasActivityControl || activityFingerprint() || (waitingWasObserved && text.length > 0)) {
       return STATES.active;
     }
 
@@ -612,7 +614,8 @@
   }
 
   function activityFingerprint() {
-    const heading = document.querySelector([
+    const headingText = [
+      '.component-response-header__title',
       'main h1',
       'main h2',
       '[role="main"] h1',
@@ -620,8 +623,13 @@
       '[data-testid*="question"]',
       '[class*="question"] h1',
       '[class*="question"] h2',
-    ].join(','));
-    const headingText = normalizeText(heading?.innerText || heading?.textContent);
+      'h1',
+      'h2',
+      '[role="heading"]',
+    ].map((selector) => document.querySelector(selector))
+      .filter((element) => element && !element.closest?.('[id^="pollev-watcher"], [id^="pollev-location"]'))
+      .map((element) => normalizeText(element.innerText || element.textContent))
+      .find(Boolean);
     return headingText ? `${location.pathname}|${headingText}` : '';
   }
 
@@ -841,6 +849,8 @@
 
     if (state !== STATES.active) {
       state = detected;
+      // Joined mid-session: take the current question as the baseline so later changes still notify.
+      if (state === STATES.active) lastActivityFingerprint = activityFingerprint();
       setBadge(state);
     }
   }
