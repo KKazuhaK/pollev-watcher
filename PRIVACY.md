@@ -8,6 +8,7 @@ The following values are stored in Tampermonkey's per-script storage in the user
 
 - Telegram Bot Token
 - Telegram Chat ID
+- Notification Webhook URL and selected message format
 - Whether monitoring is enabled or paused
 - Whether notifications are enabled or disabled
 - Whether location testing is enabled
@@ -30,6 +31,12 @@ The request contains:
 
 The location-testing settings remain in Tampermonkey storage and are not added to Telegram notifications. No project-operated server receives or stores this data. Telegram processes notification requests under its own terms and privacy policy.
 
+## Data sent to a configured Webhook
+
+When an activity activates, a question changes, or the user explicitly tests the saved Webhook, the browser sends the notification directly to the configured URL. The Slack format contains only the notification text (including the page title and URL). Generic JSON also includes the event type, page title, page URL, and timestamp. Telegram credentials, response contents, and location settings are not included. Requests omit browser cookies.
+
+The Webhook URL may contain a secret and is stored only in Tampermonkey, not in source files. The script requests access to arbitrary hosts (`@connect *`) to support user-selected endpoints; Tampermonkey may ask for permission for the chosen host. No project-operated relay is involved. The receiving service processes this data under its own terms and privacy policy.
+
 ## Map and place search
 
 The map loads tiles from `tile.openstreetmap.org`; tile requests reveal the map area being viewed and the browser's IP address to that service.
@@ -40,4 +47,4 @@ Up to 20 queries and their results are cached only in page memory to avoid repea
 
 ## Poll Everywhere access
 
-The script reads visible text and interactive controls on matching Poll Everywhere participant pages only to distinguish waiting and active states. It does not submit answers, collect response contents, or transmit Poll Everywhere page data anywhere except for the page title and URL included in the user's Telegram notification.
+The script reads visible text and interactive controls on matching Poll Everywhere participant pages only to distinguish waiting and active states. It does not submit answers, collect response contents, or transmit Poll Everywhere page data anywhere except for the page title and URL included in the user's Telegram or Webhook notification.

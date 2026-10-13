@@ -15,6 +15,7 @@ function createHarness(options = {}) {
   let localAlerts = 0;
   const alertMessages = [];
   const telegramPayloads = [];
+  const webhookRequests = [];
   let questionTitle = '';
   let nativeLocationCalls = 0;
   const menuEntries = new Map();
@@ -57,6 +58,8 @@ function createHarness(options = {}) {
     ['telegramChatId', options.telegramConfigured === false ? '' : '12345678'],
     ['locationMockSavedLocations', options.savedLocations || []],
   ]);
+  if (options.webhookUrl) values.set('notificationWebhookUrl', options.webhookUrl);
+  if (options.webhookFormat) values.set('notificationWebhookFormat', options.webhookFormat);
   if (options.interfaceLanguage) values.set('interfaceLanguage', options.interfaceLanguage);
   if (options.locationConfigured) {
     values.set('locationMockConfigured', true);
@@ -68,7 +71,8 @@ function createHarness(options = {}) {
 
   const context = {
     console,
-    Date: { now: () => now },
+    URL,
+    Date: class extends Date { static now() { return now; } },
     document,
     location: { href: 'https://pollev.com/test' },
     MutationObserver: class {
@@ -89,10 +93,17 @@ function createHarness(options = {}) {
     },
     GM_unregisterMenuCommand: (id) => menuEntries.delete(id),
     GM_setValue: (key, value) => values.set(key, value),
-    GM_xmlhttpRequest: (options) => {
+    GM_xmlhttpRequest: (request) => {
+      if (!request.url.startsWith('https://api.telegram.org/')) {
+        webhookRequests.push(request);
+        if (options.webhookFailure === 'timeout') request.ontimeout();
+        else if (options.webhookFailure === 'network') request.onerror();
+        else request.onload({ status: options.webhookStatus || 200, responseText: 'ok' });
+        return;
+      }
       telegramMessages += 1;
-      telegramPayloads.push(JSON.parse(options.data));
-      options.onload({ status: 200, responseText: '{"ok":true,"result":{}}' });
+      telegramPayloads.push(JSON.parse(request.data));
+      request.onload({ status: 200, responseText: '{"ok":true,"result":{}}' });
     },
     window: {
       alert() {},
@@ -140,6 +151,7 @@ function createHarness(options = {}) {
     counts: () => ({ telegramMessages, localAlerts }),
     alertMessages,
     telegramPayloads,
+    webhookRequests,
     enableLocation(latitude = 33.64, longitude = -117.84, accuracy = 7) {
       values.set('locationMockEnabled', true);
       values.set('locationMockLatitude', latitude);
@@ -321,4 +333,61 @@ test('saved locations appear as quick menu commands and activate location mockin
   assert.equal(received.coords.longitude, -117.8443);
   assert.equal(received.coords.accuracy, 12);
   assert.equal(harness.menuLabels().some((label) => label === '📍 定位 [已开启]'), true);
+});
+
+
+test('Slack webhook works without Telegram and accepts a plain-text success response', async () => {
+  const harness = createHarness({ telegramConfigured: false, webhookUrl: 'https://hooks.slack.com/services/test' });
+  assert.ok(harness.menuLabels().includes('🔔 通知 [已开启]'));
+  harness.wait(); harness.activate();
+  await new Promise(setImmediate);
+  assert.equal(harness.counts().telegramMessages, 0);
+  assert.equal(harness.counts().localAlerts, 1);
+  assert.equal(harness.webhookRequests.length, 1);
+  const request = harness.webhookRequests[0];
+  assert.equal(request.method, 'POST');
+  assert.equal(request.anonymous, true);
+  assert.deepEqual(Object.keys(JSON.parse(request.data)), ['text']);
+  assert.match(JSON.parse(request.data).text, /Poll Everywhere 已开启/);
+});
+
+test('generic webhook carries activation and question-change events without credentials', async () => {
+  const harness = createHarness({ webhookUrl: 'https://example.com/hook', webhookFormat: 'json' });
+  harness.wait(); harness.activate(); harness.nextQuestion('Question two'); harness.nextQuestion('Question two');
+  await new Promise(setImmediate);
+  assert.equal(harness.webhookRequests.length, 2);
+  assert.equal(harness.counts().telegramMessages, 2);
+  const payloads = harness.webhookRequests.map(request => JSON.parse(request.data));
+  assert.deepEqual(payloads.map(payload => payload.event), ['activity_active', 'question_changed']);
+  assert.equal(payloads[0].title, 'Test presentation');
+  assert.equal(payloads[0].url, 'https://pollev.com/test');
+  assert.ok(Number.isFinite(Date.parse(payloads[0].timestamp)));
+  assert.deepEqual(Object.keys(payloads[0]).sort(), ['event', 'text', 'timestamp', 'title', 'url']);
+});
+
+test('notification toggle suppresses both webhook and Telegram', () => {
+  const harness = createHarness({ webhookUrl: 'https://example.com/hook' });
+  harness.runMenu('🔔 通知'); harness.wait(); harness.activate();
+  assert.equal(harness.webhookRequests.length, 0);
+  assert.equal(harness.counts().telegramMessages, 0);
+});
+
+test('webhook failures report an error while Telegram still delivers', async () => {
+  for (const failure of [{ webhookStatus: 403 }, { webhookFailure: 'timeout' }, { webhookFailure: 'network' }]) {
+    const harness = createHarness({ webhookUrl: 'https://example.com/hook', ...failure });
+    harness.wait(); harness.activate();
+    await new Promise(setImmediate);
+    assert.equal(harness.counts().telegramMessages, 1);
+    assert.equal(harness.webhookRequests.length, 1);
+    assert.equal(harness.alertMessages.at(-1).title, 'Webhook 通知发送失败');
+  }
+});
+
+test('invalid webhook URLs never receive requests', () => {
+  for (const webhookUrl of ['javascript:alert(1)', 'https://user:password@example.com/hook', 'invalid']) {
+    const harness = createHarness({ telegramConfigured: false, webhookUrl });
+    assert.ok(harness.menuLabels().includes('🔔 通知 [未配置]'));
+    harness.wait(); harness.activate();
+    assert.equal(harness.webhookRequests.length, 0);
+  }
 });

@@ -2,7 +2,7 @@
 // @name         PollEv Watcher
 // @author       KKazuhaK
 // @namespace    https://github.com/pollev-watcher
-// @version      0.8.1
+// @version      0.9.0
 // @description  Notify Telegram when a Poll Everywhere activity becomes active.
 // @license      MIT
 // @homepageURL  https://github.com/KKazuhaK/pollev-watcher
@@ -26,6 +26,7 @@
 // @resource     leafletCSS https://unpkg.com/leaflet@1.9.4/dist/leaflet.css
 // @connect      api.telegram.org
 // @connect      photon.komoot.io
+// @connect      *
 // @run-at       document-start
 // ==/UserScript==
 
@@ -35,6 +36,8 @@
   const STORAGE_KEYS = Object.freeze({
     botToken: 'telegramBotToken',
     chatId: 'telegramChatId',
+    webhookUrl: 'notificationWebhookUrl',
+    webhookFormat: 'notificationWebhookFormat',
     enabled: 'watcherEnabled',
     notificationsEnabled: 'notificationsEnabled',
     locationEnabled: 'locationMockEnabled',
@@ -56,6 +59,23 @@
 
   const LANGUAGE_KEY = 'interfaceLanguage';
   const EN_MESSAGES = Object.freeze({
+    "请输入有效的 HTTP 或 HTTPS Webhook URL（不含用户名和密码）。": "Enter a valid HTTP or HTTPS Webhook URL without a username or password.",
+    "请先保存 Webhook 配置。": "Save the Webhook configuration first.",
+    "Webhook 返回 HTTP {status}。": "Webhook returned HTTP {status}.",
+    "Webhook 请求超时。": "Webhook request timed out.",
+    "无法连接 Webhook。": "Could not connect to Webhook.",
+    "{channel} 通知发送失败": "{channel} notification failed",
+    "PollEv Watcher：{channel} 发送失败": "PollEv Watcher: {channel} delivery failed",
+    "Webhook URL 仅保存在 Tampermonkey 中。Slack 和通用 JSON 可独立于 Telegram 使用。": "The Webhook URL is stored only in Tampermonkey. Slack and generic JSON work independently of Telegram.",
+    "消息格式": "Message format",
+    "通用 JSON": "Generic JSON",
+    "Slack 使用 text 字段；通用 JSON 包含 event、text、title、url 和 timestamp。": "Slack uses the text field; generic JSON includes event, text, title, url, and timestamp.",
+    "已配置的通知渠道、桌面通知、声音和标题闪烁": "Configured notification channels, desktop alerts, sound, and title flashing",
+    "尚未配置 Telegram 或 Webhook；请前往“通知”设置": "Telegram or Webhook is not configured; open Notifications settings",
+    "Webhook 配置已保存。": "Webhook configuration saved.",
+    "Webhook 测试通知已发送。": "Webhook test notification sent.",
+    "Webhook 配置已删除。": "Webhook configuration deleted.",
+
     "已开启": "On",
     "已关闭": "Off",
     "未配置": "Not configured",
@@ -365,6 +385,26 @@
     return /^\d+:[A-Za-z0-9_-]+$/.test(token) && /^-?\d+$/.test(chatId);
   }
 
+  function validateWebhookUrl(value) {
+    try {
+      const url = new URL(value);
+      if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password) throw new Error();
+      return url.href;
+    } catch {
+      throw new Error(t('请输入有效的 HTTP 或 HTTPS Webhook URL（不含用户名和密码）。'));
+    }
+  }
+
+  function isWebhookConfigured() {
+    const value = String(GM_getValue(STORAGE_KEYS.webhookUrl, '')).trim();
+    if (!value) return false;
+    try { validateWebhookUrl(value); return true; } catch { return false; }
+  }
+
+  function isNotificationConfigured() {
+    return isTelegramConfigured() || isWebhookConfigured();
+  }
+
   function isLocationConfigured() {
     const explicitlyConfigured = GM_getValue(STORAGE_KEYS.locationConfigured, null);
     if (typeof explicitlyConfigured === 'boolean') return explicitlyConfigured;
@@ -419,7 +459,7 @@
   }
 
   function notificationToggleMenuLabel() {
-    if (!isTelegramConfigured()) return `🔔 ${t('通知')} [${t('未配置')}]`;
+    if (!isNotificationConfigured()) return `🔔 ${t('通知')} [${t('未配置')}]`;
     const enabled = Boolean(GM_getValue(STORAGE_KEYS.notificationsEnabled, true));
     return `🔔 ${t('通知')} [${enabled ? t('已开启') : t('已关闭')}]`;
   }
@@ -441,7 +481,7 @@
   }
 
   function toggleNotificationsFromMenu() {
-    if (!isTelegramConfigured()) {
+    if (!isNotificationConfigured()) {
       openSettingsPanel('notifications');
       return;
     }
@@ -763,6 +803,30 @@
     });
   }
 
+  function sendWebhookMessage(text, event = 'test') {
+    const savedUrl = String(GM_getValue(STORAGE_KEYS.webhookUrl, '')).trim();
+    if (!savedUrl) return Promise.reject(new Error(t('请先保存 Webhook 配置。')));
+    let url;
+    try { url = validateWebhookUrl(savedUrl); } catch (error) { return Promise.reject(error); }
+    const format = GM_getValue(STORAGE_KEYS.webhookFormat, 'slack');
+    const payload = format === 'json'
+      ? { event, text, title: document.title, url: location.href, timestamp: new Date().toISOString() }
+      : { text };
+    return new Promise((resolve, reject) => {
+      GM_xmlhttpRequest({
+        method: 'POST', url, anonymous: true,
+        headers: { 'Content-Type': 'application/json' },
+        data: JSON.stringify(payload), timeout: 15_000,
+        onload(response) {
+          if (response.status >= 200 && response.status < 300) resolve();
+          else reject(new Error(t('Webhook 返回 HTTP {status}。', { status: response.status })));
+        },
+        ontimeout: () => reject(new Error(t('Webhook 请求超时。'))),
+        onerror: () => reject(new Error(t('无法连接 Webhook。'))),
+      });
+    });
+  }
+
   async function detectLatestTelegramChat(tokenOverride = '') {
     const updates = await telegramRequest('getUpdates', {
       limit: 100,
@@ -796,13 +860,18 @@
     playAlertSound();
     flashTitle();
 
-    try {
-      await sendTelegramMessage(message);
-    } catch (error) {
-      console.warn('[PollEv Watcher] Telegram notification failed:', error.message);
-      localNotification(t('Telegram 通知发送失败'), error.message);
-      setBadge(STATES.active, t('PollEv Watcher：Telegram 发送失败'));
-    }
+    const channels = [];
+    if (isTelegramConfigured()) channels.push(['Telegram', () => sendTelegramMessage(message)]);
+    if (isWebhookConfigured()) channels.push(['Webhook', () => sendWebhookMessage(message, isNextQuestion ? 'question_changed' : 'activity_active')]);
+    await Promise.all(channels.map(async ([channel, send]) => {
+      try {
+        await send();
+      } catch (error) {
+        console.warn(`[PollEv Watcher] ${channel} notification failed:`, error.message);
+        localNotification(t('{channel} 通知发送失败', { channel }), error.message);
+        setBadge(STATES.active, t('PollEv Watcher：{channel} 发送失败', { channel }));
+      }
+    }));
   }
 
   function evaluateState() {
@@ -1096,6 +1165,16 @@
                 </div>
                 <div class="pw-actions"><button class="pw-button pw-primary" id="pw-save-telegram">${t('保存配置')}</button><button class="pw-button" id="pw-detect-chat">${t('自动检测 Chat ID')}</button><button class="pw-button" id="pw-test-telegram">${t('发送测试通知')}</button><button class="pw-button pw-danger" id="pw-delete-telegram">${t('删除配置')}</button></div>
               </div>
+              <div class="pw-card">
+                <div class="pw-row"><h3 class="pw-section-title">Webhook</h3><span class="pw-badge" id="pw-webhook-badge"></span></div>
+                <p class="pw-section-note">${t('Webhook URL 仅保存在 Tampermonkey 中。Slack 和通用 JSON 可独立于 Telegram 使用。')}</p>
+                <div class="pw-form-grid">
+                  <div class="pw-field"><label for="pw-webhook-url">Webhook URL</label><input id="pw-webhook-url" type="password" autocomplete="off"></div>
+                  <div class="pw-field"><label for="pw-webhook-format">${t('消息格式')}</label><select id="pw-webhook-format"><option value="slack">Slack / text JSON</option><option value="json">${t('通用 JSON')}</option></select></div>
+                </div>
+                <p class="pw-note">${t('Slack 使用 text 字段；通用 JSON 包含 event、text、title、url 和 timestamp。')}</p>
+                <div class="pw-actions"><button class="pw-button pw-primary" id="pw-save-webhook">${t('保存配置')}</button><button class="pw-button" id="pw-test-webhook">${t('发送测试通知')}</button><button class="pw-button pw-danger" id="pw-delete-webhook">${t('删除配置')}</button></div>
+              </div>
             </section>
             <section class="pw-panel" data-panel="location">
               <div class="pw-row"><div><h3 class="pw-section-title">${t('定位模拟')}</h3><p class="pw-section-note">${t('点击地图或拖动标记选择位置；保存后刷新页面生效。')}</p></div><span class="pw-badge" id="pw-location-badge"></span></div>
@@ -1135,6 +1214,8 @@
     const locationToggles = [...overlay.querySelectorAll('.pw-location-toggle')];
     const tokenInput = overlay.querySelector('#pw-bot-token');
     const chatIdInput = overlay.querySelector('#pw-chat-id');
+    const webhookInput = overlay.querySelector('#pw-webhook-url');
+    const webhookFormat = overlay.querySelector('#pw-webhook-format');
     const latitude = overlay.querySelector('#pw-latitude');
     const longitude = overlay.querySelector('#pw-longitude');
     const accuracy = overlay.querySelector('#pw-accuracy');
@@ -1154,6 +1235,13 @@
     const setAllChecked = (toggles, checked) => toggles.forEach((toggle) => { toggle.checked = checked; });
     const refreshConfigurationUi = () => {
       const telegramConfigured = isTelegramConfigured();
+      const notificationConfigured = isNotificationConfigured();
+      const webhookConfigured = isWebhookConfigured();
+      const webhookBadge = overlay.querySelector('#pw-webhook-badge');
+      webhookBadge.textContent = webhookConfigured ? t('已配置') : t('未配置');
+      webhookBadge.classList.toggle('is-unconfigured', !webhookConfigured);
+      webhookInput.placeholder = webhookConfigured ? t('已保存；留空保持不变') : 'https://…';
+      webhookFormat.value = GM_getValue(STORAGE_KEYS.webhookFormat, 'slack');
       const locationConfigured = isLocationConfigured();
       const telegramBadge = overlay.querySelector('#pw-telegram-badge');
       const locationBadge = overlay.querySelector('#pw-location-badge');
@@ -1161,11 +1249,11 @@
       telegramBadge.classList.toggle('is-unconfigured', !telegramConfigured);
       locationBadge.textContent = locationConfigured ? t('已配置') : t('未配置');
       locationBadge.classList.toggle('is-unconfigured', !locationConfigured);
-      overlay.querySelector('#pw-notification-summary').textContent = telegramConfigured ? t('Telegram、桌面通知、声音和标题闪烁') : t('尚未配置 Telegram；请前往“通知”设置');
+      overlay.querySelector('#pw-notification-summary').textContent = notificationConfigured ? t('已配置的通知渠道、桌面通知、声音和标题闪烁') : t('尚未配置 Telegram 或 Webhook；请前往“通知”设置');
       overlay.querySelector('#pw-location-summary').textContent = locationConfigured ? t('仅作用于 Poll Everywhere 页面') : t('尚未保存定位设置');
-      notificationToggles.forEach((toggle) => { toggle.disabled = !telegramConfigured; });
+      notificationToggles.forEach((toggle) => { toggle.disabled = !notificationConfigured; });
       locationToggles.forEach((toggle) => { toggle.disabled = !locationConfigured; });
-      setAllChecked(notificationToggles, telegramConfigured && Boolean(GM_getValue(STORAGE_KEYS.notificationsEnabled, true)));
+      setAllChecked(notificationToggles, notificationConfigured && Boolean(GM_getValue(STORAGE_KEYS.notificationsEnabled, true)));
       setAllChecked(locationToggles, locationConfigured && isLocationMockEnabled());
       tokenInput.placeholder = telegramConfigured ? t('已保存；留空保持不变') : t('从 @BotFather 复制完整 Token');
       chatIdInput.value = String(GM_getValue(STORAGE_KEYS.chatId, ''));
@@ -1397,6 +1485,35 @@
       refreshConfigurationUi();
       refreshControlMenus();
       setStatus(t('Telegram 配置已删除。'));
+    });
+
+    overlay.querySelector('#pw-save-webhook').addEventListener('click', () => {
+      const candidate = webhookInput.value.trim() || String(GM_getValue(STORAGE_KEYS.webhookUrl, '')).trim();
+      try {
+        const url = validateWebhookUrl(candidate);
+        GM_setValue(STORAGE_KEYS.webhookUrl, url);
+        GM_setValue(STORAGE_KEYS.webhookFormat, webhookFormat.value === 'json' ? 'json' : 'slack');
+        webhookInput.value = '';
+        refreshConfigurationUi();
+        refreshControlMenus();
+        setStatus(t('Webhook 配置已保存。'));
+      } catch (error) { setStatus(error.message); }
+    });
+    overlay.querySelector('#pw-test-webhook').addEventListener('click', async () => {
+      if (!isWebhookConfigured()) { setStatus(t('请先保存 Webhook 配置。')); return; }
+      setStatus(t('正在发送测试通知…'));
+      try {
+        await sendWebhookMessage(`${t('✅ PollEv Watcher 测试成功')}\n${location.href}`);
+        setStatus(t('Webhook 测试通知已发送。'));
+      } catch (error) { setStatus(t('发送失败：{error}', { error: error.message })); }
+    });
+    overlay.querySelector('#pw-delete-webhook').addEventListener('click', () => {
+      GM_deleteValue(STORAGE_KEYS.webhookUrl);
+      GM_deleteValue(STORAGE_KEYS.webhookFormat);
+      webhookInput.value = '';
+      refreshConfigurationUi();
+      refreshControlMenus();
+      setStatus(t('Webhook 配置已删除。'));
     });
 
     overlay.querySelector('#pw-save-location').addEventListener('click', () => {

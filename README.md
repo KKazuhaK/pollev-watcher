@@ -1,6 +1,6 @@
 # PollEv Watcher
 
-PollEv Watcher is a small Tampermonkey userscript that watches a Poll Everywhere participant page. After it observes the waiting screen, it sends a Telegram message when the activity becomes active.
+PollEv Watcher is a small Tampermonkey userscript that watches a Poll Everywhere participant page. After it observes the waiting screen, it sends a Telegram message and/or a configurable Webhook notification when the activity becomes active.
 
 It also shows a local desktop notification, plays a short sound when the browser permits it, and flashes the tab title.
 
@@ -69,6 +69,19 @@ Place search uses the public [Photon service](https://github.com/komoot/photon) 
 6. Choose **Send test notification** in the same settings section to verify the setup.
 
 The Bot Token and Chat ID are stored in Tampermonkey's script storage. They are not part of this repository. Do not add either value to source files, screenshots, issues, or commits. See [PRIVACY.md](PRIVACY.md) for the complete data-handling summary.
+
+## Webhook notifications (Slack or generic JSON)
+
+Open **Watcher settings → Notifications**, enter your Webhook URL, choose a message format, and click **Save configuration**, then **Send test notification**. Telegram is optional; when both channels are configured, each receives the notification independently. The notification switch disables both channels and local alerts. Delete the Webhook configuration to stop sending to that endpoint.
+
+- **Slack / text JSON**: sends `{"text":"…"}` using HTTP POST with `Content-Type: application/json`. Create a Slack Incoming Webhook for the destination channel using [Slack's setup guide](https://docs.slack.dev/messaging/sending-messages-using-incoming-webhooks).
+- **Generic JSON**: sends `event`, `text`, `title`, `url`, and an ISO 8601 `timestamp`. Events are `activity_active`, `question_changed`, and `test`. Use this for your own receiver or automation service. Other chat services may need an adapter if they require a different payload.
+
+HTTP and HTTPS endpoints are supported; HTTPS is recommended. Webhook URLs stay in Tampermonkey storage and are hidden in the settings form. Leaving the URL blank when saving preserves the saved URL. Requests omit browser cookies, time out after 15 seconds, and treat HTTP 2xx as success, including Slack's plain-text `ok` response. Failed sends show a local error; there are no automatic retries.
+
+The script declares `@connect *` to support user-configured hosts. Tampermonkey may ask you to allow the destination on the first request. No Webhook request is made until a URL is saved and an activity notification or explicit test is triggered.
+
+中文：在 **Watcher 设置 → 通知** 中填写 Webhook URL，选择 **Slack / text JSON** 或 **通用 JSON**，保存后发送测试通知。无需配置 Telegram；同时配置两个渠道时会分别发送。通知开关控制所有提醒，删除 Webhook 配置可停止向该地址发送。
 
 ## How detection works
 
