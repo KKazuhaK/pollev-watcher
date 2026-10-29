@@ -85,7 +85,9 @@ The script declares `@connect *` to support user-configured hosts. Tampermonkey 
 
 ## How detection works
 
-The script first waits until it sees Poll Everywhere's waiting message. It then watches page changes with a `MutationObserver`. When the waiting screen disappears for long enough, the script treats the activity as active and sends one notification. If the page returns to waiting, the notification latch resets so the next activation sends another notification.
+The script first waits until it sees Poll Everywhere's waiting message. It then watches page changes with a `MutationObserver`. When an active activity appears and remains visible long enough, the script sends one notification. If the page returns to waiting, the notification latch resets so the next activation sends another notification.
+
+If the waiting page does not update on its own, the watcher refreshes it after about 60 seconds in the waiting state. It remembers the pending transition in the current tab so an activity found after the refresh still triggers a notification. Refreshing is paused while the watcher settings are open or monitoring is disabled, and is skipped if tab-local storage is unavailable. Browser throttling can delay the refresh.
 
 While an activity remains active, the watcher also fingerprints the visible question heading. A changed heading triggers one new-question notification, while response counts and result animations do not.
 

@@ -2,7 +2,7 @@
 // @name         PollEv Watcher
 // @author       KKazuhaK
 // @namespace    https://github.com/pollev-watcher
-// @version      0.9.0
+// @version      0.9.1
 // @description  Notify Telegram when a Poll Everywhere activity becomes active.
 // @license      MIT
 // @homepageURL  https://github.com/KKazuhaK/pollev-watcher
@@ -265,12 +265,15 @@
 
   const CHECK_DELAY_MS = 500;
   const ACTIVE_CONFIRMATION_MS = 1800;
+  const WAITING_REFRESH_MS = 60_000;
+  const WAITING_REFRESH_KEY = 'pollev-watcher-refresh-path';
   const TITLE_FLASH_INTERVAL_MS = 900;
   const TITLE_FLASH_DURATION_MS = 30_000;
 
   let state = STATES.unknown;
   let waitingWasObserved = false;
   let waitingDisappearedAt = 0;
+  let waitingSince = 0;
   let checkTimer = null;
   let notificationSent = false;
   let lastActivityFingerprint = '';
@@ -884,22 +887,38 @@
     const now = Date.now();
 
     if (detected === STATES.waiting) {
+      if (state !== STATES.waiting) waitingSince = now;
       state = STATES.waiting;
       waitingWasObserved = true;
       waitingDisappearedAt = 0;
       notificationSent = false;
       lastActivityFingerprint = '';
       setBadge(state);
+      if (now - waitingSince >= WAITING_REFRESH_MS && !document.getElementById('pollev-watcher-settings')) {
+        try {
+          window.sessionStorage.setItem(WAITING_REFRESH_KEY, location.pathname);
+          window.location.reload();
+        } catch (error) {
+          // Without tab-local storage, a refresh could lose the pending notification.
+          waitingSince = now;
+        }
+      }
       return;
     }
 
-    if (waitingWasObserved && state === STATES.waiting && detected !== STATES.waiting) {
+    if (waitingWasObserved && state === STATES.waiting && detected === STATES.unknown) {
+      waitingDisappearedAt = 0;
+      return;
+    }
+
+    if (waitingWasObserved && state === STATES.waiting && detected === STATES.active) {
       waitingDisappearedAt ||= now;
       if (now - waitingDisappearedAt < ACTIVE_CONFIRMATION_MS) {
         scheduleCheck();
         return;
       }
       state = STATES.active;
+      try { window.sessionStorage.removeItem(WAITING_REFRESH_KEY); } catch (error) { /* Storage may be unavailable. */ }
       lastActivityFingerprint = activityFingerprint();
       void notifyActivityActive();
       return;
@@ -1620,6 +1639,14 @@
   refreshControlMenus();
 
   function startWatcher() {
+    try {
+      if (window.sessionStorage.getItem(WAITING_REFRESH_KEY) === location.pathname) {
+        state = STATES.waiting;
+        waitingWasObserved = true;
+        waitingSince = Date.now();
+      }
+      window.sessionStorage.removeItem(WAITING_REFRESH_KEY);
+    } catch (error) { /* Storage may be unavailable. */ }
     document.addEventListener('click', unlockAudio, { once: true, capture: true });
     const observer = new MutationObserver(scheduleCheck);
     observer.observe(document.documentElement, {

@@ -18,6 +18,8 @@ function createHarness(options = {}) {
   const webhookRequests = [];
   let questionTitle = '';
   let nativeLocationCalls = 0;
+  let reloads = 0;
+  const sessionValues = options.sessionValues || new Map();
   const menuEntries = new Map();
   let nextMenuId = 1;
   const elements = new Map();
@@ -74,7 +76,7 @@ function createHarness(options = {}) {
     URL,
     Date: class extends Date { static now() { return now; } },
     document,
-    location: { href: 'https://pollev.com/test' },
+    location: { href: 'https://pollev.com/test', pathname: '/test', reload() { reloads += 1; } },
     MutationObserver: class {
       constructor(callback) {
         observerCallback = callback;
@@ -111,6 +113,11 @@ function createHarness(options = {}) {
       focus() {},
       prompt: () => null,
       navigator: { geolocation, language: options.browserLanguage || 'zh-CN' },
+      sessionStorage: {
+        getItem: (key) => sessionValues.get(key) ?? null,
+        setItem: (key, value) => sessionValues.set(key, value),
+        removeItem: (key) => sessionValues.delete(key),
+      },
       Geolocation: function Geolocation() {},
       clearInterval() {},
       clearTimeout() {},
@@ -149,6 +156,8 @@ function createHarness(options = {}) {
       evaluateInterval();
     },
     counts: () => ({ telegramMessages, localAlerts }),
+    tick(ms) { now += ms; evaluateInterval(); },
+    reloads: () => reloads,
     alertMessages,
     telegramPayloads,
     webhookRequests,
@@ -171,6 +180,22 @@ function createHarness(options = {}) {
     },
   };
 }
+
+test('waiting refresh preserves the activation notification across reloads', () => {
+  const sessionValues = new Map();
+  const first = createHarness({ sessionValues });
+  first.wait();
+  first.tick(59_999);
+  assert.equal(first.reloads(), 0);
+  first.tick(1);
+  assert.equal(first.reloads(), 1);
+
+  const reloaded = createHarness({ sessionValues });
+  reloaded.activate();
+  assert.equal(reloaded.counts().telegramMessages, 1);
+  reloaded.tick(60_000);
+  assert.equal(reloaded.reloads(), 0);
+});
 
 test('metadata includes both Poll Everywhere participant domains', () => {
   assert.match(source, /@match\s+https:\/\/pollev\.com\/\*/);
